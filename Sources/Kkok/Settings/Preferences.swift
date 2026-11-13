@@ -169,7 +169,7 @@ final class Preferences {
     }
 
     var timerSeconds: Int {
-        get { let v = d.integer(forKey: "timerSeconds"); return v == 0 ? 5 : max(1, min(15, v)) }
+        get { let v = d.integer(forKey: "timerSeconds"); return v == 0 ? 3 : max(1, min(15, v)) }
         set { d.set(newValue, forKey: "timerSeconds") }
     }
 
