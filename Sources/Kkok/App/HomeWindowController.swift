@@ -170,8 +170,9 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func capture(_ sender: NSButton) {
         guard let raw = sender.identifier?.rawValue, let mode = CaptureMode(rawValue: raw) else { return }
-        window?.orderOut(nil) // 시작 창이 찍히지 않게
-        CaptureController.shared.start(mode)
+        // 시작 창이 화면에서 완전히 사라진 뒤에 화면을 얼린다
+        window?.orderOut(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { CaptureController.shared.start(mode) }
     }
 
     @objc private func openRecent(_ sender: NSButton) {
