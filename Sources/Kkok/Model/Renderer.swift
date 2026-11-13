@@ -156,7 +156,8 @@ enum Renderer {
         ctx.saveGState()
         ctx.textMatrix = .identity
         for (i, line) in layout.lines.enumerated() {
-            let baseline = a.p1.y + CGFloat(i) * layout.lineHeight + layout.ascent
+            // 고정 줄 높이에서 남는 공간은 위쪽에 (편집 중 NSTextView와 같은 위치, BUG-06)
+            let baseline = a.p1.y + CGFloat(i) * layout.lineHeight + layout.lineHeight - layout.descent
             ctx.saveGState()
             // y 아래 좌표계에서 글자가 뒤집히지 않도록 그 줄만 다시 뒤집는다
             ctx.translateBy(x: a.p1.x, y: baseline)

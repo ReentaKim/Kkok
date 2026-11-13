@@ -265,6 +265,14 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         let v = convert(e.locationInWindow, from: nil)
         let p = toImage(v)
 
+        // 선택한 주석의 손잡이 (가장자리 띠보다 먼저, BUG-12)
+        if tools.tool != .crop, selection.count == 1, let id = selection.first, let a = annotation(id) {
+            for (h, hp) in Geometry.handles(of: a) where toView(hp).distance(to: v) <= 7 {
+                drag = .handle(id: id, handle: h, original: a, before: doc.state)
+                return
+            }
+        }
+
         if let edge = edge(at: v) {
             doc.apply("캔버스 넓히기") { $0.expand(edge) }
             hoverEdge = nil
@@ -281,14 +289,6 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
             drag = .crop(start: p)
             cropRect = CGRect(origin: p, size: .zero)
             return
-        }
-
-        // 선택한 주석의 손잡이
-        if selection.count == 1, let id = selection.first, let a = annotation(id) {
-            for (h, hp) in Geometry.handles(of: a) where toView(hp).distance(to: v) <= 7 {
-                drag = .handle(id: id, handle: h, original: a, before: doc.state)
-                return
-            }
         }
 
         // 기존 주석 위
@@ -522,7 +522,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         if tools.tool == .crop { selection = [] }
         if editingID != nil, tools.tool != .text { endTextEditing() }
         // 선택한 주석의 색·굵기 바꾸기 (FR-19)
-        if (tools.color != lastColor || tools.size != lastSize), !selection.isEmpty {
+        if (tools.color != lastColor || tools.size != lastSize), !selection.isEmpty, window?.isMainWindow == true {
             let color = tools.color, size = tools.size
             let colorChanged = tools.color != lastColor
             doc.apply(colorChanged ? "색 바꾸기" : "굵기 바꾸기") { s in
@@ -553,11 +553,20 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
             nudge(code, big: e.modifierFlags.contains(.shift)); return
         default: break
         }
-        if mods.isEmpty, let ch = e.charactersIgnoringModifiers?.lowercased() {
-            if let t = Tool.allCases.first(where: { $0.shortcut == ch }) { tools.tool = t; return }
-            if let n = Int(ch), (1...3).contains(n) { tools.size = n; return }
-        }
+        if mods.isEmpty, applyShortcut(keyCode: code) { return }
         super.keyDown(with: e)
+    }
+
+    /// 입력 소스(한글·영문)와 상관없이 자판 위치로 도구를 바꾼다 (FR-22, BUG-03·08)
+    private func applyShortcut(keyCode: Int) -> Bool {
+        let toolKeys: [Int: Tool] = [9: .select, 0: .arrow, 17: .text, 35: .pen, 4: .highlighter,
+                                     11: .pixelate, 1: .stamp, 8: .crop]
+        let shapeKeys: [Int: ShapeKind] = [15: .rect, 31: .ellipse, 37: .line]
+        let sizeKeys: [Int: Int] = [18: 1, 19: 2, 20: 3]
+        if let t = toolKeys[keyCode] { tools.tool = t; return true }
+        if let s = shapeKeys[keyCode] { tools.shape = s; tools.tool = .shape; return true }
+        if let n = sizeKeys[keyCode] { tools.size = n; return true }
+        return false
     }
 
     func applyCrop() {

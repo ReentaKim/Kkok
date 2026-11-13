@@ -82,6 +82,7 @@ enum Geometry {
     struct TextLayout {
         var lines: [CTLine]
         var ascent: CGFloat
+        var descent: CGFloat
         var lineHeight: CGFloat
         var size: CGSize
     }
@@ -102,7 +103,7 @@ enum Geometry {
         let ascent = CTFontGetAscent(f), descent = CTFontGetDescent(f), leading = CTFontGetLeading(f)
         let lh = ceil(ascent + descent + max(leading, fontSize * 0.1))
         let width = lines.map { CGFloat(CTLineGetTypographicBounds($0, nil, nil, nil)) }.max() ?? 0
-        return TextLayout(lines: lines, ascent: ascent, lineHeight: lh,
+        return TextLayout(lines: lines, ascent: ascent, descent: descent, lineHeight: lh,
                           size: CGSize(width: ceil(width), height: lh * CGFloat(lines.count)))
     }
 

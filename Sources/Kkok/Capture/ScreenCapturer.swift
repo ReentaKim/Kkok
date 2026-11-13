@@ -64,9 +64,8 @@ enum ScreenCapturer {
         guard let display = content.displays.first(where: { $0.displayID == screen.displayID }) else {
             throw CaptureError.displayNotFound
         }
-        // Kkok 자신의 창(카운트다운 등)은 빼고 찍는다
-        let me = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
-        let filter = SCContentFilter(display: display, excludingApplications: me, exceptingWindows: [])
+        // Kkok 편집 창도 찍힌다. 카운트다운·오버레이 창은 찍기 전에 이미 숨긴다 (BUG-13)
+        let filter = SCContentFilter(display: display, excludingWindows: [])
         let config = SCStreamConfiguration()
         let scale = screen.backingScaleFactor
         config.width = Int(screen.frame.width * scale)

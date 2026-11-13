@@ -39,6 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
+    /// ⌘Q로 끝낼 때 입력 중인 글자와 저장 대기 중인 편집을 저장한다 (BUG-05)
+    func applicationWillTerminate(_ notification: Notification) {
+        for wc in editors {
+            wc.canvas.endTextEditing()
+            wc.doc.saveNow()
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Dock 아이콘에 끌어 놓기·Finder "다음으로 열기" (FR-07)

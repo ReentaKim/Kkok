@@ -157,6 +157,12 @@ final class Preferences {
 
     func setHotKey(_ hk: HotKey?, for mode: CaptureMode) {
         let key = "hotkey.\(mode.rawValue)"
+        // 같은 단축키를 다른 캡처 방식이 쓰고 있으면 그쪽을 비운다 (BUG-10)
+        if let hk {
+            for other in CaptureMode.allCases where other != mode && hotKey(for: other) == hk {
+                d.set(Data(), forKey: "hotkey.\(other.rawValue)")
+            }
+        }
         if let hk, let data = try? JSONEncoder().encode(hk) { d.set(data, forKey: key) }
         else { d.set(Data(), forKey: key) }
         NotificationCenter.default.post(name: Self.didChange, object: nil)

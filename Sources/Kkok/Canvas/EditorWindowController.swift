@@ -20,7 +20,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
         window.title = doc.name
-        window.minSize = NSSize(width: 560, height: 420)
+        window.minSize = NSSize(width: 780, height: 420)
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         super.init(window: window)
@@ -28,6 +28,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
         doc.undoManager = window.undoManager
         buildToolbar()
         buildContent()
+        // 도구 막대 + 위 막대(52) + 아래 막대(56)가 다 들어가게 (BUG-01)
+        window.minSize.height = max(420, palette.requiredHeight + 52 + 56)
         sizeWindowToFit()
 
         NotificationCenter.default.addObserver(self, selector: #selector(docSaved), name: EditorDocument.didSave, object: doc)

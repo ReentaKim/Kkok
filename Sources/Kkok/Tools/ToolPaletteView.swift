@@ -9,39 +9,43 @@ final class ToolPaletteView: NSView {
 
     override var isFlipped: Bool { true }
 
+    /// 도구가 잘리지 않는 최소 높이 (BUG-01)
+    private(set) var requiredHeight: CGFloat = 0
+
     init() {
         super.init(frame: .zero)
         wantsLayer = true
         var y: CGFloat = 10
         for t in Tool.allCases {
             let b = ToolButton(tool: t)
-            b.frame = CGRect(x: 8, y: y, width: 40, height: 40)
+            b.frame = CGRect(x: 10, y: y, width: 36, height: 36)
             b.onClick = { [weak self] in self?.clicked(t, button: b) }
             b.onMenu = { [weak self] in self?.showSubmenu(t, button: b) }
             addSubview(b)
             buttons[t] = b
-            y += 44
+            y += 38
             if t == .crop { break }
         }
-        y += 6
+        y += 4
         let sep = NSBox(frame: CGRect(x: 12, y: y, width: 32, height: 1))
         sep.boxType = .separator
         addSubview(sep)
-        y += 12
+        y += 8
         swatch.frame = CGRect(x: 13, y: y, width: 30, height: 30)
         swatch.onClick = { [weak self] in self?.showColors() }
         swatch.toolTip = "색"
         addSubview(swatch)
-        y += 40
+        y += 34
         for n in 1...3 {
             let d = SizeDot(size: n)
-            d.frame = CGRect(x: 13, y: y, width: 30, height: 24)
+            d.frame = CGRect(x: 13, y: y, width: 30, height: 20)
             d.onClick = { [weak self] in self?.tools.size = n }
             d.toolTip = ["작게 (1)", "보통 (2)", "크게 (3)"][n - 1]
             addSubview(d)
             sizeDots.append(d)
-            y += 26
+            y += 22
         }
+        requiredHeight = y + 8
         NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: ToolState.didChange, object: nil)
         refresh()
     }
@@ -192,6 +196,7 @@ final class ToolPaletteView: NSView {
     @objc private func customColor() {
         let panel = NSColorPanel.shared
         panel.showsAlpha = false
+        panel.isContinuous = false
         panel.color = tools.color.nsColor
         panel.setTarget(self)
         panel.setAction(#selector(colorPanelChanged(_:)))

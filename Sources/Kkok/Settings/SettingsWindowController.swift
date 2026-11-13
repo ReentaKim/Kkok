@@ -1,7 +1,7 @@
 import AppKit
 
 /// 설정: 캡처 단축키 5개, 타이머 초, 로그인 시 실행 (FR-41·42)
-final class SettingsWindowController: NSWindowController {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var recorders: [CaptureMode: HotKeyRecorder] = [:]
     private let failureLabel = NSTextField(wrappingLabelWithString: "")
     private let loginCheck = NSButton(checkboxWithTitle: "로그인할 때 Kkok 실행", target: nil, action: nil)
@@ -13,6 +13,7 @@ final class SettingsWindowController: NSWindowController {
         window.title = "Kkok 설정"
         window.isReleasedWhenClosed = false
         super.init(window: window)
+        window.delegate = self
         build()
         window.center()
     }
@@ -85,6 +86,15 @@ final class SettingsWindowController: NSWindowController {
         loginCheck.state = LaunchAtLogin.enabled ? .on : .off
         reloadFailures()
         super.showWindow(sender)
+    }
+
+    /// 단축키를 받는 중에 창을 닫아도 단축키가 꺼진 채로 남지 않게 (BUG-09)
+    func windowWillClose(_ notification: Notification) { endRecording() }
+    func windowDidResignKey(_ notification: Notification) { endRecording() }
+
+    private func endRecording() {
+        window?.makeFirstResponder(nil)
+        NotificationCenter.default.post(name: Preferences.didChange, object: nil)
     }
 
     @objc private func timerChanged() {
