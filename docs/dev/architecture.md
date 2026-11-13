@@ -48,7 +48,18 @@ scripts/generate-icons.sh           # 아이콘 다시 그리기
 
 화면 점검: `KKOK_SNAPSHOT_IN=이미지 KKOK_SNAPSHOT_OUT=결과.png .build/release/Kkok` — 화면에 띄우지 않고 편집 창을 그려 PNG로 저장한다(사용자 작업 방해 없음).
 
-## 8. 알려진 한계 (v0.1)
+## 8. 이후 추가 (2026-11-13, 사용자 피드백)
+| 항목 | 위치 |
+|---|---|
+| 시작 창(FR-45): 직접 실행·아이콘 다시 누름 | `App/HomeWindowController.swift` |
+| 글꼴 4개(OFL, 프로세스 안에서만 등록, FR-23) | `Model/FontRegistry.swift`, `Resources/Fonts`, `Resources/licenses` |
+| 12색 격자 | `Tools/ToolPaletteView.swift` (`ColorGridView`) |
+| 글자 회전·손잡이 커서(FR-24·25) | `Model/Geometry.swift`(textCorners·rotate·snapAngle), `Canvas/HandleCursor.swift` |
+| 오버레이 종료 시 해제된 선택기 참조로 죽던 문제(BUG-14) | `Capture/SelectionOverlay.swift` (`weak owner`) |
+
+화면 점검 모드(화면에 띄우지 않고 PNG로 저장): `KKOK_SNAPSHOT_IN/OUT`(편집 창), `KKOK_SNAPSHOT_HOME_OUT`(시작 창), `KKOK_SNAPSHOT_COLORS_OUT`(색 격자), `KKOK_SNAPSHOT_CURSORS_OUT`(커서). 번들 밖에서 실행할 때 글꼴은 `KKOK_FONTS_DIR=Resources/Fonts`.
+
+## 9. 알려진 한계 (v0.1)
 - 영역 선택은 한 화면 안에서만(화면 두 개에 걸친 영역 불가)
-- 주석 회전 없음(Skitch의 회전 손잡이는 v0.2 후보)
+- 회전은 글자만(도형·스탬프 회전은 v0.2 후보). 돌린 글자를 고쳐 쓰는 동안은 입력 상자가 수평으로 보임
 - 화살표 곡선 없음, 글자 배경 상자 없음
