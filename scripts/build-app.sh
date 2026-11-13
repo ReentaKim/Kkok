@@ -45,8 +45,13 @@ codesign --verify --strict "$APP" && echo "✔ $APP"
 
 if [[ "$INSTALL" -eq 1 ]]; then
   echo "▶ /Applications 에 설치"
-  pkill -x Kkok 2>/dev/null || true
-  sleep 0.5
+  # 정상 종료(편집 중인 내용 저장) → 안 되면 강제 종료
+  if pgrep -x Kkok >/dev/null; then
+    osascript -e 'tell application id "io.github.reentakim.kkok" to quit' 2>/dev/null || true
+    for _ in 1 2 3 4 5 6; do pgrep -x Kkok >/dev/null || break; sleep 0.5; done
+    pkill -x Kkok 2>/dev/null || true
+    sleep 0.3
+  fi
   rm -rf /Applications/Kkok.app
   cp -R "$APP" /Applications/Kkok.app
   open /Applications/Kkok.app

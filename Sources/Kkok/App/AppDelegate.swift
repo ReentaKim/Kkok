@@ -6,12 +6,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var editors: [EditorWindowController] = []
     private var settings: SettingsWindowController?
+    private var home: HomeWindowController?
+    private var openedWithFiles = false
     private let recentMenu = NSMenu(title: "최근 항목")
 
     // MARK: 시작
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
+        if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_HOME_OUT"] {
+            DevSnapshot.runHome(output: URL(fileURLWithPath: out))
+            return
+        }
         if let input = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_IN"],
            let output = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_OUT"] {
             DevSnapshot.run(input: URL(fileURLWithPath: input), output: URL(fileURLWithPath: output))
@@ -26,17 +32,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !HotKeyCenter.shared.failures.isEmpty { self?.registerHotKeys() }
         }
 
-        // 처음 실행: 로그인 시 실행 켜기(기본) + 안내 (FR-41)
-        if !Preferences.shared.didShowWelcome {
+        NotificationCenter.default.addObserver(forName: HomeWindowController.didClose, object: nil, queue: .main) { [weak self] _ in
+            self?.updateActivationPolicy()
+        }
+
+        // 처음 실행: 로그인 시 실행 켜기(기본) (FR-41)
+        let firstRun = !Preferences.shared.didShowWelcome
+        if firstRun {
             Preferences.shared.didShowWelcome = true
             LaunchAtLogin.enabled = true
-            showWelcome()
+        }
+
+        // 직접 실행했으면 시작 창 (로그인 자동 실행·파일 열기로 실행된 경우는 제외) (FR-45)
+        let launchedAtLogin = Self.isLoginLaunch()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [self] in
+            guard !openedWithFiles, editors.isEmpty else { return }
+            if firstRun || (!launchedAtLogin && Preferences.shared.showHomeAtLaunch) { showHome(nil) }
         }
     }
 
+    /// 로그인 항목으로 실행됐는지 (Apple 이벤트의 launched-as-login-item 표시)
+    private static func isLoginLaunch() -> Bool {
+        guard let ev = NSAppleEventManager.shared().currentAppleEvent else { return false }
+        return ev.eventID == kAEOpenApplication
+            && ev.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+    }
+
+    /// 실행 중에 앱 아이콘을 다시 누르면 시작 창 (창이 이미 있으면 그대로)
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { CaptureController.shared.start(.area) }
+        if !flag { showHome(nil) }
         return true
+    }
+
+    @objc func showHome(_ sender: Any?) {
+        if home == nil {
+            let h = HomeWindowController()
+            h.onOpenRecent = { [weak self] id in self?.openHistory(id) }
+            home = h
+        }
+        NSApp.setActivationPolicy(.regular)
+        home?.showWindow(nil)
+        home?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// 보이는 창이 하나도 없으면 Dock에서 내려가 메뉴 막대에만 남는다
+    private func updateActivationPolicy() {
+        DispatchQueue.main.async { [self] in
+            let visible = !editors.isEmpty || home?.window?.isVisible == true || settings?.window?.isVisible == true
+            NSApp.setActivationPolicy(visible ? .regular : .accessory)
+        }
     }
 
     /// ⌘Q로 끝낼 때 입력 중인 글자와 저장 대기 중인 편집을 저장한다 (BUG-05)
@@ -51,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Dock 아이콘에 끌어 놓기·Finder "다음으로 열기" (FR-07)
     func application(_ application: NSApplication, open urls: [URL]) {
+        openedWithFiles = true
         open(urls: urls)
     }
 
@@ -62,6 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.button?.toolTip = "Kkok"
         let menu = NSMenu()
         menu.delegate = self
+        menu.addItem(withTitle: "Kkok 열기", action: #selector(showHome(_:)), keyEquivalent: "").target = self
+        menu.addItem(.separator())
         for mode in CaptureMode.allCases {
             let mi = NSMenuItem(title: mode.title, action: #selector(captureMenu(_:)), keyEquivalent: "")
             mi.target = self
@@ -147,13 +195,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let wc = EditorWindowController(doc: doc)
         wc.onClose = { [weak self] wc in
             self?.editors.removeAll { $0 === wc }
-            if self?.editors.isEmpty == true {
-                // 편집 창이 다 닫히면 Dock에서 내려간다
-                DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
-            }
+            self?.updateActivationPolicy()
         }
         editors.append(wc)
         NSApp.setActivationPolicy(.regular)
+        home?.window?.orderOut(nil) // 편집을 시작하면 시작 창은 비킨다
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
         wc.window?.makeFirstResponder(wc.canvas)
@@ -225,6 +271,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openRecent(_ item: NSMenuItem) {
         guard let s = item.representedObject as? String, let id = UUID(uuidString: s) else { return }
+        openHistory(id)
+    }
+
+    private func openHistory(_ id: UUID) {
         if let existing = editors.first(where: { $0.doc.meta.id == id }) {
             NSApp.setActivationPolicy(.regular)
             existing.window?.makeKeyAndOrderFront(nil)
@@ -243,31 +293,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func showSettings(_ sender: Any?) {
         if !HotKeyCenter.shared.failures.isEmpty { registerHotKeys() }
-        if settings == nil { settings = SettingsWindowController() }
+        if settings == nil {
+            let sw = SettingsWindowController()
+            settings = sw
+            if let w = sw.window {
+                NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
+                    self?.updateActivationPolicy()
+                }
+            }
+        }
         NSApp.activate(ignoringOtherApps: true)
+        NSApp.setActivationPolicy(.regular)
         settings?.showWindow(nil)
         settings?.window?.makeKeyAndOrderFront(nil)
-    }
-
-    private func showWelcome() {
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "Kkok이 메뉴 막대에서 대기합니다"
-        let area = Preferences.shared.hotKey(for: .area)?.display ?? "-"
-        let win = Preferences.shared.hotKey(for: .window)?.display ?? "-"
-        let full = Preferences.shared.hotKey(for: .fullscreen)?.display ?? "-"
-        alert.informativeText = """
-        \(area)  영역 캡처
-        \(win)  창 캡처
-        \(full)  전체 화면
-
-        처음 캡처할 때 화면 기록 권한을 물어봅니다. 단축키는 설정에서 바꿀 수 있습니다.
-        """
-        if !HotKeyCenter.shared.failures.isEmpty {
-            alert.informativeText += "\n\n다른 앱이 쓰고 있어 등록하지 못한 단축키: " + HotKeyCenter.shared.failures.joined(separator: ", ")
-        }
-        alert.addButton(withTitle: "확인")
-        alert.runModal()
     }
 
     // MARK: 앱 메뉴
@@ -374,6 +412,21 @@ enum StatusIcon {
 /// 개발 점검용: 화면에 띄우지 않고 편집 창을 그려 PNG로 저장한다.
 /// KKOK_SNAPSHOT_IN=이미지 KKOK_SNAPSHOT_OUT=결과.png .build/release/Kkok
 enum DevSnapshot {
+    static func runHome(output: URL) {
+        let wc = HomeWindowController()
+        wc.reload()
+        guard let window = wc.window, let view = window.contentView?.superview else { exit(1) }
+        window.setFrameOrigin(CGPoint(x: -10000, y: -10000))
+        window.orderFront(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            view.layoutSubtreeIfNeeded()
+            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: output)
+            exit(0)
+        }
+    }
+
     static func run(input: URL, output: URL) {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("kkok-snapshot-\(UUID().uuidString)")
         let store = HistoryStore(root: tmp, picturesDir: tmp.appendingPathComponent("pics"))

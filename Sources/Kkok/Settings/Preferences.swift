@@ -201,6 +201,12 @@ final class Preferences {
         set { d.set(newValue, forKey: "size") }
     }
 
+    /// 앱을 직접 실행할 때 시작 창 보기 (기본 켬)
+    var showHomeAtLaunch: Bool {
+        get { d.object(forKey: "showHomeAtLaunch") == nil ? true : d.bool(forKey: "showHomeAtLaunch") }
+        set { d.set(newValue, forKey: "showHomeAtLaunch") }
+    }
+
     var didShowWelcome: Bool {
         get { d.bool(forKey: "didShowWelcome") }
         set { d.set(newValue, forKey: "didShowWelcome") }
