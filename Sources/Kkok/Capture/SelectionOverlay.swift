@@ -116,7 +116,7 @@ final class RegionSelectView: NSView {
             if adjusting { drawHandles(sel, ctx) }
             drawSizeLabel(for: sel, near: adjusting ? CGPoint(x: sel.maxX, y: sel.maxY) : (mouse ?? CGPoint(x: sel.maxX, y: sel.maxY)), ctx: ctx)
         } else {
-            ctx.fill(bounds)
+            // 끌기 전에는 어둡게 덮지 않고 십자선만 (사용자 피드백 2026-11-13)
             if let m = mouse, !otherScreenActive {
                 // 십자선
                 ctx.setLineWidth(1)
@@ -126,7 +126,6 @@ final class RegionSelectView: NSView {
                 ctx.move(to: CGPoint(x: m.x.rounded() + 0.5, y: 0)); ctx.addLine(to: CGPoint(x: m.x.rounded() + 0.5, y: bounds.maxY))
                 ctx.strokePath()
                 ctx.setShadow(offset: .zero, blur: 0, color: nil)
-                drawSizeLabel(text: "\(Int(m.x)), \(Int(m.y))", near: m, ctx: ctx)
             }
         }
         if adjusting, let sel = selection { drawButtons(sel) }
