@@ -196,6 +196,11 @@ final class Preferences {
         set { d.set(try? JSONEncoder().encode(newValue), forKey: "color") }
     }
 
+    var font: TextFont {
+        get { TextFont(rawValue: d.string(forKey: "font") ?? "") ?? .system }
+        set { d.set(newValue.rawValue, forKey: "font") }
+    }
+
     var size: Int {
         get { let v = d.integer(forKey: "size"); return v == 0 ? 2 : max(1, min(3, v)) }
         set { d.set(newValue, forKey: "size") }

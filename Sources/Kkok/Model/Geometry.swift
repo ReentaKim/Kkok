@@ -87,14 +87,14 @@ enum Geometry {
         var size: CGSize
     }
 
-    static let textFontName = "AppleSDGothicNeo-Bold"
+    static let textFontName = TextFont.system.postScriptName
 
-    static func font(size: CGFloat) -> CTFont {
-        CTFontCreateWithName(textFontName as CFString, size, nil)
+    static func font(name: String = textFontName, size: CGFloat) -> CTFont {
+        CTFontCreateWithName(name as CFString, size, nil)
     }
 
-    static func textLayout(_ text: String, fontSize: CGFloat) -> TextLayout {
-        let f = font(size: fontSize)
+    static func textLayout(_ text: String, fontSize: CGFloat, fontName: String = textFontName) -> TextLayout {
+        let f = font(name: fontName, size: fontSize)
         let attrs: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): f,
         ]
@@ -127,7 +127,7 @@ enum Geometry {
         case .highlighter:
             return pointsBounds(a.points).insetBy(dx: -a.highlighterWidth, dy: -a.highlighterWidth)
         case .text:
-            let l = textLayout(a.text, fontSize: a.fontSize)
+            let l = textLayout(a.text, fontSize: a.fontSize, fontName: a.fontName)
             let pad = a.fontSize * 0.12
             return CGRect(origin: a.p1, size: l.size).insetBy(dx: -pad, dy: -pad)
         case .stamp:

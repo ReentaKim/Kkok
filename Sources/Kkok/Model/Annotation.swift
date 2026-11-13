@@ -32,11 +32,59 @@ struct RGBA: Codable, Equatable, Hashable {
     static let white = RGBA(r: 1, g: 1, b: 1)
     static let black = RGBA(r: 0, g: 0, b: 0)
 
-    /// 디자인 명세 2장의 색 8개
-    static let palette: [RGBA] = [
-        "#FC0C59", "#FF3B30", "#FF9500", "#FFD60A",
-        "#34C759", "#0A84FF", "#1C1C1E", "#FFFFFF",
-    ].map { RGBA(hex: $0) }
+    /// 디자인 명세 2장의 색 12개 (사인펜 세트처럼)
+    static let palette: [RGBA] = paletteNamed.map(\.1)
+
+    static let paletteNamed: [(String, RGBA)] = [
+        ("분홍", "#FC0C59"), ("빨강", "#FF3B30"), ("주황", "#FF9500"), ("노랑", "#FFD60A"),
+        ("연두", "#8BD83A"), ("초록", "#34C759"), ("하늘", "#32ADE6"), ("파랑", "#0A84FF"),
+        ("보라", "#AF52DE"), ("갈색", "#A2845E"), ("검정", "#1C1C1E"), ("흰색", "#FFFFFF"),
+    ].map { ($0.0, RGBA(hex: $0.1)) }
+}
+
+/// 글자 주석 글꼴. 앱에 넣은 OFL 폰트 4개 + 기본 (Resources/Fonts, Resources/licenses)
+enum TextFont: String, Codable, CaseIterable {
+    case system, pretendard, dohyeon, jua, nanumPen
+
+    var title: String {
+        switch self {
+        case .system: return "기본 (산돌고딕 Neo)"
+        case .pretendard: return "프리텐다드"
+        case .dohyeon: return "배민 도현체"
+        case .jua: return "배민 주아체"
+        case .nanumPen: return "나눔손글씨 펜"
+        }
+    }
+
+    var postScriptName: String {
+        switch self {
+        case .system: return "AppleSDGothicNeo-Bold"
+        case .pretendard: return "Pretendard-ExtraBold"
+        case .dohyeon: return "DoHyeon-Regular"
+        case .jua: return "Jua-Regular"
+        case .nanumPen: return "NanumPen-Regular"
+        }
+    }
+
+    /// 같은 굵기 단계에서 비슷한 크기로 보이게 맞추는 배수 (손글씨는 작게 나와서 키운다)
+    var sizeFactor: Double {
+        switch self {
+        case .nanumPen: return 1.35
+        case .dohyeon, .jua: return 1.05
+        default: return 1
+        }
+    }
+
+    /// 앱 안의 폰트 파일 이름
+    var fileName: String? {
+        switch self {
+        case .system: return nil
+        case .pretendard: return "Pretendard-ExtraBold.otf"
+        case .dohyeon: return "DoHyeon-Regular.ttf"
+        case .jua: return "Jua-Regular.ttf"
+        case .nanumPen: return "NanumPenScript-Regular.ttf"
+        }
+    }
 }
 
 enum AnnotationKind: String, Codable, CaseIterable {
@@ -81,6 +129,8 @@ struct Annotation: Codable, Equatable, Identifiable {
     var number: Int = 1
     /// 사용자가 손잡이로 늘린 스탬프·글자 크기 배수
     var magnify: Double = 1
+    /// 글자 글꼴. 없으면 기본 (예전 보관 파일과 호환되도록 선택값)
+    var font: TextFont?
 
     init(kind: AnnotationKind, color: RGBA, size: Int, scale: Double) {
         self.kind = kind
@@ -93,7 +143,8 @@ struct Annotation: Codable, Equatable, Identifiable {
 
     var lineWidth: CGFloat { CGFloat([3, 5, 9][size - 1] * scale) }
     var arrowWidth: CGFloat { CGFloat([6, 10, 16][size - 1] * scale) }
-    var fontSize: CGFloat { CGFloat([18, 24, 36][size - 1] * scale * magnify) }
+    var fontSize: CGFloat { CGFloat([18, 24, 36][size - 1] * scale * magnify * (font ?? .system).sizeFactor) }
+    var fontName: String { (font ?? .system).postScriptName }
     var highlighterWidth: CGFloat { CGFloat(Double(size) * 4 * 3 * scale) }
     var stampDiameter: CGFloat { CGFloat((Double(size) * 14 + 20) * scale * magnify) }
     /// 흰 외곽선이 색 선보다 양쪽으로 더 두꺼운 양

@@ -13,7 +13,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: 시작
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        FontRegistry.registerBundledFonts()
         buildMainMenu()
+        if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_COLORS_OUT"] {
+            let v = ColorGridView(current: .pink, pick: { _ in }, custom: {})
+            let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
+            v.cacheDisplay(in: v.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
+            exit(0)
+        }
         if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_HOME_OUT"] {
             DevSnapshot.runHome(output: URL(fileURLWithPath: out))
             return
@@ -439,6 +447,14 @@ enum DevSnapshot {
         var t = Annotation(kind: .text, color: .pink, size: 2, scale: Double(doc.scale))
         t.p1 = CGPoint(x: CGFloat(img.width) * 0.4, y: CGFloat(img.height) * 0.75); t.text = "여기를 고쳐 주세요"
         doc.state.annotations = [a, t]
+        // 글꼴 견본
+        for (i, f) in TextFont.allCases.enumerated() {
+            var ft = Annotation(kind: .text, color: RGBA.palette[(i * 2) % 12], size: 2, scale: Double(doc.scale))
+            ft.font = f
+            ft.text = f.title
+            ft.p1 = CGPoint(x: 20 * doc.scale, y: CGFloat(20 + i * 40) * doc.scale)
+            doc.state.annotations.append(ft)
+        }
         let wc = EditorWindowController(doc: doc)
         guard let window = wc.window, let view = window.contentView?.superview else { exit(1) }
         window.setFrameOrigin(CGPoint(x: -10000, y: -10000))

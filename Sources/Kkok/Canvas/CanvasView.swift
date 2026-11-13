@@ -47,11 +47,13 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
 
     private var lastColor: RGBA
     private var lastSize: Int
+    private var lastFont: TextFont
 
     init(doc: EditorDocument) {
         self.doc = doc
         lastColor = ToolState.shared.color
         lastSize = ToolState.shared.size
+        lastFont = ToolState.shared.font
         super.init(frame: .zero)
         doc.onChange = { [weak self] in self?.documentChanged() }
         registerForDraggedTypes([.fileURL])
@@ -318,6 +320,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         selection = []
 
         var a = Annotation(kind: kind, color: tools.color(for: kind), size: tools.size, scale: Double(doc.scale))
+        if kind == .text { a.font = tools.font }
         let before = doc.state
         switch kind {
         case .text:
@@ -440,18 +443,8 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         tv.isHorizontallyResizable = true
         tv.isVerticallyResizable = true
         tv.maxSize = CGSize(width: 100_000, height: 100_000)
-        let font = NSFont(name: Geometry.textFontName, size: a.fontSize * k) ?? .boldSystemFont(ofSize: a.fontSize * k)
-        let para = NSMutableParagraphStyle()
-        let lh = Geometry.textLayout("A", fontSize: a.fontSize).lineHeight * k
-        para.minimumLineHeight = lh
-        para.maximumLineHeight = lh
-        tv.typingAttributes = [.font: font, .foregroundColor: a.color.nsColor, .paragraphStyle: para]
-        tv.font = font
-        tv.textColor = a.color.nsColor
-        tv.insertionPointColor = a.color.isLight ? .black : a.color.nsColor
         tv.string = a.text
-        tv.setTextColor(a.color.nsColor, range: NSRange(location: 0, length: (a.text as NSString).length))
-        tv.textStorage?.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: (a.text as NSString).length))
+        styleTextView(tv, a)
         tv.delegate = self
         // 흰 글자도 보이도록 옅은 그림자
         tv.shadow = { let s = NSShadow(); s.shadowColor = NSColor(white: a.color.isLight ? 0 : 1, alpha: 0.9); s.shadowBlurRadius = 2; return s }()
@@ -461,6 +454,19 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         window?.makeFirstResponder(tv)
         tv.selectAll(nil)
         needsDisplay = true
+    }
+
+    /// 글꼴·크기·색을 편집 중인 글자 상자에 맞춘다 (편집 중에 글꼴을 바꿔도 다시 부른다)
+    private func styleTextView(_ tv: NSTextView, _ a: Annotation) {
+        let font = NSFont(name: a.fontName, size: a.fontSize * k) ?? .boldSystemFont(ofSize: a.fontSize * k)
+        let para = NSMutableParagraphStyle()
+        let lh = Geometry.textLayout("A", fontSize: a.fontSize, fontName: a.fontName).lineHeight * k
+        para.minimumLineHeight = lh
+        para.maximumLineHeight = lh
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: a.color.nsColor, .paragraphStyle: para]
+        tv.typingAttributes = attrs
+        tv.insertionPointColor = a.color.isLight ? .black : a.color.nsColor
+        tv.textStorage?.setAttributes(attrs, range: NSRange(location: 0, length: tv.textStorage?.length ?? 0))
     }
 
     private func layoutTextView() {
@@ -521,6 +527,22 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         if tools.tool != .crop { cropRect = nil }
         if tools.tool == .crop { selection = [] }
         if editingID != nil, tools.tool != .text { endTextEditing() }
+        // 글자를 쓰는 중에 글꼴을 바꾸면 그 글자에 바로 적용
+        if tools.font != lastFont, let id = editingID, let tv = textView {
+            let f = tools.font
+            update(id) { $0.font = f }
+            if let a = annotation(id) { styleTextView(tv, a) }
+            layoutTextView()
+        } else if tools.font != lastFont, !selection.isEmpty, window?.isMainWindow == true {
+            // 선택한 글자 주석의 글꼴 바꾸기
+            let f = tools.font, sel = selection
+            doc.apply("글꼴 바꾸기") { s in
+                for i in s.annotations.indices where sel.contains(s.annotations[i].id) && s.annotations[i].kind == .text {
+                    s.annotations[i].font = f
+                }
+            }
+        }
+        lastFont = tools.font
         // 선택한 주석의 색·굵기 바꾸기 (FR-19)
         if (tools.color != lastColor || tools.size != lastSize), !selection.isEmpty, window?.isMainWindow == true {
             let color = tools.color, size = tools.size

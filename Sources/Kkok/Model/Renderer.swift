@@ -152,7 +152,7 @@ enum Renderer {
     // MARK: 글자 (FR-11)
 
     static func drawText(_ a: Annotation, _ ctx: CGContext) {
-        let layout = Geometry.textLayout(a.text, fontSize: a.fontSize)
+        let layout = Geometry.textLayout(a.text, fontSize: a.fontSize, fontName: a.fontName)
         ctx.saveGState()
         ctx.textMatrix = .identity
         for (i, line) in layout.lines.enumerated() {

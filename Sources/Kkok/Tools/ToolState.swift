@@ -12,6 +12,7 @@ final class ToolState {
     var stamp: StampKind { didSet { prefs.stamp = stamp; post() } }
     var color: RGBA { didSet { prefs.color = color; post() } }
     var size: Int { didSet { prefs.size = size; post() } }
+    var font: TextFont { didSet { prefs.font = font; post() } }
 
     private init() {
         tool = prefs.tool
@@ -19,6 +20,7 @@ final class ToolState {
         stamp = prefs.stamp
         color = prefs.color
         size = prefs.size
+        font = prefs.font
     }
 
     private func post() { NotificationCenter.default.post(name: Self.didChange, object: self) }
