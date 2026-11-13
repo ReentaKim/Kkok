@@ -65,7 +65,7 @@ final class RegionSelector {
         guard !finished else { return }
         finished = true
         NSCursor.pop()
-        for w in windows { w.orderOut(nil) }
+        for w in windows { w.orderOut(nil); w.contentView = nil }
         windows.removeAll()
         let c = completion
         completion = nil
@@ -75,7 +75,7 @@ final class RegionSelector {
 
 final class RegionSelectView: NSView {
     let shot: DisplayShot
-    unowned let owner: RegionSelector
+    weak var owner: RegionSelector?
     var otherScreenActive = false
 
     private var mouse: CGPoint?
@@ -195,7 +195,7 @@ final class RegionSelectView: NSView {
 
     override func mouseMoved(with e: NSEvent) {
         mouse = point(e)
-        owner.didStartDrag(on: self)
+        owner?.didStartDrag(on: self)
         for w in NSApp.windows where w is OverlayWindow { w.contentView?.needsDisplay = true }
         if window?.isKeyWindow == false { window?.makeKey(); window?.makeFirstResponder(self) }
     }
@@ -219,7 +219,7 @@ final class RegionSelectView: NSView {
             // 바깥을 누르면 새로 고르기
             adjusting = false
         }
-        owner.didStartDrag(on: self)
+        owner?.didStartDrag(on: self)
         start = p
         selection = CGRect(origin: p, size: .zero)
         needsDisplay = true
@@ -257,7 +257,7 @@ final class RegionSelectView: NSView {
             // 클릭만 했으면 다시 십자선으로
             selection = nil; needsDisplay = true; return
         }
-        if owner.adjustFirst || e.modifierFlags.contains(.option) {
+        if (owner?.adjustFirst ?? false) || e.modifierFlags.contains(.option) {
             adjusting = true
             needsDisplay = true
         } else {
@@ -267,20 +267,20 @@ final class RegionSelectView: NSView {
 
     private func accept(timed: Bool) {
         guard let sel = selection else { return }
-        owner.finish(.selected(shot, sel.integral, timed: timed))
+        owner?.finish(.selected(shot, sel.integral, timed: timed))
     }
 
     // MARK: 키보드
 
     override func keyDown(with e: NSEvent) {
         switch Int(e.keyCode) {
-        case 53: owner.finish(.cancelled) // Esc
+        case 53: owner?.finish(.cancelled) // Esc
         case 36, 76: if selection != nil { accept(timed: false) } // Enter
         default: super.keyDown(with: e)
         }
     }
 
-    override func cancelOperation(_ sender: Any?) { owner.finish(.cancelled) }
+    override func cancelOperation(_ sender: Any?) { owner?.finish(.cancelled) }
 }
 
 // MARK: - 창 선택 (FR-04)
@@ -322,7 +322,7 @@ final class WindowSelector {
         guard !done else { return }
         done = true
         NSCursor.pop()
-        for w in windows { w.orderOut(nil) }
+        for w in windows { w.orderOut(nil); w.contentView = nil }
         windows.removeAll()
         let c = completion; completion = nil
         c?(id)
@@ -331,7 +331,7 @@ final class WindowSelector {
 
 final class WindowSelectView: NSView {
     let screen: NSScreen
-    unowned let owner: WindowSelector
+    weak var owner: WindowSelector?
 
     init(screen: NSScreen, owner: WindowSelector) {
         self.screen = screen
@@ -346,7 +346,7 @@ final class WindowSelectView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard let h = owner.hovered else {
+        guard let h = owner?.hovered else {
             NSColor(white: 0, alpha: 0.15).setFill(); bounds.fill(); return
         }
         let origin = screen.cgFrame.origin
@@ -367,17 +367,17 @@ final class WindowSelectView: NSView {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        owner.updateHover()
+        owner?.updateHover()
         if window?.isKeyWindow == false { window?.makeKey(); window?.makeFirstResponder(self) }
     }
 
     override func mouseDown(with event: NSEvent) {
-        owner.updateHover()
-        owner.finish(owner.hovered?.id)
+        owner?.updateHover()
+        owner?.finish(owner?.hovered?.id)
     }
 
     override func keyDown(with e: NSEvent) {
-        if e.keyCode == 53 { owner.finish(nil) } else { super.keyDown(with: e) }
+        if e.keyCode == 53 { owner?.finish(nil) } else { super.keyDown(with: e) }
     }
 }
 
