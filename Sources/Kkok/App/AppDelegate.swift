@@ -15,6 +15,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         FontRegistry.registerBundledFonts()
         buildMainMenu()
+        if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_CURSORS_OUT"] {
+            // 손잡이 커서 견본: 0°·45°·90°·135° ↔ + 회전
+            let cursors = [HandleCursor.resize(along: CGPoint(x: 1, y: 0)), HandleCursor.resize(along: CGPoint(x: 1, y: 1)),
+                           HandleCursor.resize(along: CGPoint(x: 0, y: 1)), HandleCursor.resize(along: CGPoint(x: 1, y: -1)), HandleCursor.rotate]
+            let img = NSImage(size: NSSize(width: 5 * 60, height: 60), flipped: false) { _ in
+                NSColor(white: 0.85, alpha: 1).setFill(); NSRect(x: 0, y: 0, width: 300, height: 60).fill()
+                for (i, c) in cursors.enumerated() { c.image.draw(in: NSRect(x: CGFloat(i) * 60 + 6, y: 6, width: 48, height: 48)) }
+                return true
+            }
+            if let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
+            }
+            exit(0)
+        }
         if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_COLORS_OUT"] {
             let v = ColorGridView(current: .pink, pick: { _ in }, custom: {})
             let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
@@ -455,7 +469,15 @@ enum DevSnapshot {
             ft.p1 = CGPoint(x: 20 * doc.scale, y: CGFloat(20 + i * 40) * doc.scale)
             doc.state.annotations.append(ft)
         }
+        // 회전한 글자 견본 (선택해서 손잡이까지 보이게)
+        var rt = Annotation(kind: .text, color: RGBA.palette[8], size: 3, scale: Double(doc.scale))
+        rt.font = .jua
+        rt.text = "회전 20°"
+        rt.p1 = CGPoint(x: CGFloat(img.width) * 0.62, y: CGFloat(img.height) * 0.1)
+        rt.rotation = 20 * .pi / 180
+        doc.state.annotations.append(rt)
         let wc = EditorWindowController(doc: doc)
+        wc.canvas.select([rt.id])
         guard let window = wc.window, let view = window.contentView?.superview else { exit(1) }
         window.setFrameOrigin(CGPoint(x: -10000, y: -10000))
         window.orderFront(nil)

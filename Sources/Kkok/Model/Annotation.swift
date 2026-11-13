@@ -131,6 +131,10 @@ struct Annotation: Codable, Equatable, Identifiable {
     var magnify: Double = 1
     /// 글자 글꼴. 없으면 기본 (예전 보관 파일과 호환되도록 선택값)
     var font: TextFont?
+    /// 글자 회전(라디안, 이미지 좌표 y 아래 기준 = 시계 방향 +). 없으면 0
+    var rotation: Double?
+
+    var angle: CGFloat { CGFloat(rotation ?? 0) }
 
     init(kind: AnnotationKind, color: RGBA, size: Int, scale: Double) {
         self.kind = kind

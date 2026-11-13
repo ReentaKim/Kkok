@@ -127,9 +127,7 @@ enum Geometry {
         case .highlighter:
             return pointsBounds(a.points).insetBy(dx: -a.highlighterWidth, dy: -a.highlighterWidth)
         case .text:
-            let l = textLayout(a.text, fontSize: a.fontSize, fontName: a.fontName)
-            let pad = a.fontSize * 0.12
-            return CGRect(origin: a.p1, size: l.size).insetBy(dx: -pad, dy: -pad)
+            return pointsBounds(textCorners(a))
         case .stamp:
             let r = a.stampDiameter / 2 + a.outlineExtra
             return CGRect(x: a.p1.x - r, y: a.p1.y - r, width: r * 2, height: r * 2)
@@ -141,6 +139,41 @@ enum Geometry {
         var minX = f.x, minY = f.y, maxX = f.x, maxY = f.y
         for p in pts { minX = min(minX, p.x); minY = min(minY, p.y); maxX = max(maxX, p.x); maxY = max(maxY, p.y) }
         return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    // MARK: 글자 회전
+
+    /// 회전 전 글자 상자(여백 포함, 이미지 좌표)
+    static func textLocalRect(_ a: Annotation) -> CGRect {
+        let l = textLayout(a.text, fontSize: a.fontSize, fontName: a.fontName)
+        let pad = a.fontSize * 0.12
+        return CGRect(origin: a.p1, size: l.size).insetBy(dx: -pad, dy: -pad)
+    }
+
+    /// 회전 중심 = 글자 상자 가운데
+    static func textCenter(_ a: Annotation) -> CGPoint {
+        let r = textLocalRect(a)
+        return CGPoint(x: r.midX, y: r.midY)
+    }
+
+    static func rotate(_ p: CGPoint, around c: CGPoint, by t: CGFloat) -> CGPoint {
+        let dx = p.x - c.x, dy = p.y - c.y
+        return CGPoint(x: c.x + dx * cos(t) - dy * sin(t), y: c.y + dx * sin(t) + dy * cos(t))
+    }
+
+    /// 회전한 글자 상자의 네 모서리: 왼위, 오위, 오아래, 왼아래
+    static func textCorners(_ a: Annotation) -> [CGPoint] {
+        let r = textLocalRect(a), c = CGPoint(x: r.midX, y: r.midY)
+        return [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
+            .map { rotate($0, around: c, by: a.angle) }
+    }
+
+    /// 회전 손잡이 각도(라디안)를 15° 단위로, 또는 0·90·180·270° 가까이면 붙인다
+    static func snapAngle(_ t: CGFloat, step15: Bool) -> CGFloat {
+        if step15 { return (t / (.pi / 12)).rounded() * (.pi / 12) }
+        let right = (t / (.pi / 2)).rounded() * (.pi / 2)
+        return abs(t - right) < (4 * .pi / 180) ? right : t
     }
 
     // MARK: 클릭 판정
@@ -182,7 +215,10 @@ enum Geometry {
             if pts.count == 1 { return p.distance(to: pts[0]) <= w }
             for i in 1..<max(1, pts.count) where distance(from: p, toSegment: pts[i - 1], pts[i]) <= w { return true }
             return false
-        case .pixelate, .text, .stamp:
+        case .text:
+            let local = rotate(p, around: textCenter(a), by: -a.angle)
+            return textLocalRect(a).insetBy(dx: -tol, dy: -tol).contains(local)
+        case .pixelate, .stamp:
             return bounds(of: a).insetBy(dx: -tol, dy: -tol).contains(p)
         }
     }
@@ -193,9 +229,11 @@ enum Geometry {
         case p1, p2                // 화살표·선 양 끝
         case corner(Int)           // 0 왼위, 1 오위, 2 오아래, 3 왼아래
         case magnify               // 글자·스탬프 크기
+        case rotate                // 글자 회전
     }
 
-    static func handles(of a: Annotation) -> [(Handle, CGPoint)] {
+    /// `rotateOffset`: 회전 손잡이를 글자 위쪽으로 얼마나 띄울지(이미지 px)
+    static func handles(of a: Annotation, rotateOffset: CGFloat = 0) -> [(Handle, CGPoint)] {
         switch a.kind {
         case .arrow, .line:
             return [(.p1, a.p1), (.p2, a.p2)]
@@ -203,7 +241,12 @@ enum Geometry {
             let r = a.rect
             return [(.corner(0), CGPoint(x: r.minX, y: r.minY)), (.corner(1), CGPoint(x: r.maxX, y: r.minY)),
                     (.corner(2), CGPoint(x: r.maxX, y: r.maxY)), (.corner(3), CGPoint(x: r.minX, y: r.maxY))]
-        case .text, .stamp:
+        case .text:
+            let cs = textCorners(a)
+            let topMid = CGPoint(x: (cs[0].x + cs[1].x) / 2, y: (cs[0].y + cs[1].y) / 2)
+            let up = CGPoint(x: sin(a.angle), y: -cos(a.angle))
+            return [(.magnify, cs[2]), (.rotate, topMid + up * rotateOffset)]
+        case .stamp:
             let b = bounds(of: a)
             return [(.magnify, CGPoint(x: b.maxX, y: b.maxY))]
         case .pen, .highlighter:
@@ -227,6 +270,16 @@ enum Geometry {
             default: fixed = CGPoint(x: r.maxX, y: r.minY)
             }
             a.p1 = fixed; a.p2 = p
+        case .magnify where original.kind == .text:
+            // 글자는 가운데를 고정한 채 키운다 (회전해도 제자리)
+            let c = textCenter(original)
+            let oldDist = textCorners(original)[2].distance(to: c)
+            guard oldDist > 1 else { return }
+            let k = p.distance(to: c) / oldDist
+            a.magnify = max(0.3, min(8, original.magnify * Double(k)))
+            let size = textLocalRect(a).size
+            let pad = a.fontSize * 0.12
+            a.p1 = CGPoint(x: c.x - size.width / 2 + pad, y: c.y - size.height / 2 + pad)
         case .magnify:
             let ob = bounds(of: original)
             let anchor: CGPoint = original.kind == .stamp ? original.p1 : CGPoint(x: ob.minX, y: ob.minY)
@@ -234,6 +287,12 @@ enum Geometry {
             guard oldDist > 1 else { return }
             let k = p.distance(to: anchor) / oldDist
             a.magnify = max(0.3, min(8, original.magnify * Double(k)))
+        case .rotate:
+            // 손잡이는 회전 0°일 때 위쪽(-90°)에 있다
+            let c = textCenter(original)
+            var t = atan2(p.y - c.y, p.x - c.x) + .pi / 2
+            if t > .pi { t -= 2 * .pi }
+            a.rotation = Double(t)
         }
     }
 

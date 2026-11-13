@@ -154,6 +154,12 @@ enum Renderer {
     static func drawText(_ a: Annotation, _ ctx: CGContext) {
         let layout = Geometry.textLayout(a.text, fontSize: a.fontSize, fontName: a.fontName)
         ctx.saveGState()
+        if a.angle != 0 {
+            let c = Geometry.textCenter(a)
+            ctx.translateBy(x: c.x, y: c.y)
+            ctx.rotate(by: a.angle)
+            ctx.translateBy(x: -c.x, y: -c.y)
+        }
         ctx.textMatrix = .identity
         for (i, line) in layout.lines.enumerated() {
             // 고정 줄 높이에서 남는 공간은 위쪽에 (편집 중 NSTextView와 같은 위치, BUG-06)

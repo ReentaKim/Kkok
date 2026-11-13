@@ -182,3 +182,69 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(store.recent().count, 2)
     }
 }
+
+final class RotationTests: XCTestCase {
+    func makeText() -> Annotation {
+        var a = Annotation(kind: .text, color: .pink, size: 2, scale: 1)
+        a.text = "회전 테스트"
+        a.p1 = CGPoint(x: 100, y: 100)
+        return a
+    }
+
+    func testRotateHandleSetsAngle() {
+        let a = makeText()
+        let c = Geometry.textCenter(a)
+        var b = a
+        // 중심의 오른쪽으로 끌면 +90°(시계 방향)
+        Geometry.apply(handle: .rotate, to: &b, point: CGPoint(x: c.x + 50, y: c.y), original: a)
+        XCTAssertEqual(b.angle, .pi / 2, accuracy: 0.001)
+        // 위쪽 그대로면 0°
+        Geometry.apply(handle: .rotate, to: &b, point: CGPoint(x: c.x, y: c.y - 50), original: a)
+        XCTAssertEqual(b.angle, 0, accuracy: 0.001)
+    }
+
+    func testSnapAngle() {
+        XCTAssertEqual(Geometry.snapAngle(0.03, step15: false), 0, accuracy: 1e-6)          // 0° 가까이면 붙음
+        XCTAssertEqual(Geometry.snapAngle(0.3, step15: false), 0.3, accuracy: 1e-6)         // 멀면 그대로
+        XCTAssertEqual(Geometry.snapAngle(0.3, step15: true), .pi / 12, accuracy: 1e-6)    // ⇧ 15°
+    }
+
+    func testRotatedHitTestAndBounds() {
+        var a = makeText()
+        let c = Geometry.textCenter(a)
+        let local = Geometry.textLocalRect(a)
+        a.rotation = Double.pi / 2
+        // 90° 돌리면 가로로 긴 상자가 세로로 길어진다
+        let b = Geometry.bounds(of: a)
+        XCTAssertEqual(b.width, local.height, accuracy: 0.5)
+        XCTAssertEqual(b.height, local.width, accuracy: 0.5)
+        // 원래 오른쪽 끝 근처 점은 이제 아래쪽 끝 근처에 있다
+        let farRight = CGPoint(x: local.maxX - 3, y: c.y)
+        XCTAssertFalse(Geometry.hitTest(a, at: farRight, tolerance: 0, inside: true))
+        XCTAssertTrue(Geometry.hitTest(a, at: CGPoint(x: c.x, y: c.y + local.width / 2 - 3), tolerance: 0, inside: true))
+    }
+
+    /// 회전한 글자를 키워도 가운데는 그대로
+    func testMagnifyKeepsCenterWhenRotated() {
+        var a = makeText()
+        a.rotation = 0.4
+        let c = Geometry.textCenter(a)
+        let corner = Geometry.textCorners(a)[2]
+        var b = a
+        let far = CGPoint(x: c.x + (corner.x - c.x) * 2, y: c.y + (corner.y - c.y) * 2)
+        Geometry.apply(handle: .magnify, to: &b, point: far, original: a)
+        XCTAssertEqual(b.magnify, 2, accuracy: 0.01)
+        let c2 = Geometry.textCenter(b)
+        XCTAssertEqual(c2.x, c.x, accuracy: 1)
+        XCTAssertEqual(c2.y, c.y, accuracy: 1)
+    }
+
+    /// 회전 정보가 없는 예전 파일도 열린다
+    func testOldFileWithoutRotation() throws {
+        let a = makeText()
+        var obj = try JSONSerialization.jsonObject(with: JSONEncoder().encode(a)) as! [String: Any]
+        obj.removeValue(forKey: "rotation")
+        let back = try JSONDecoder().decode(Annotation.self, from: JSONSerialization.data(withJSONObject: obj))
+        XCTAssertEqual(back.angle, 0)
+    }
+}

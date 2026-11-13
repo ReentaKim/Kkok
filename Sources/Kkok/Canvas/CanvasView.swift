@@ -25,7 +25,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
     let pad: CGFloat = 40
     let edgeBand: CGFloat = 22
 
-    private(set) var selection: Set<UUID> = [] { didSet { needsDisplay = true } }
+    private(set) var selection: Set<UUID> = [] { didSet { needsDisplay = true; updateCursor() } }
 
     private enum Drag {
         case none
@@ -96,7 +96,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         let r = canvasViewRect
         setFrameSize(CGSize(width: ceil(r.width + pad * 2), height: ceil(r.height + pad * 2)))
         needsDisplay = true
-        window?.invalidateCursorRects(for: self)
+        updateCursor()
     }
 
     private func documentChanged() {
@@ -142,26 +142,63 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         guard editingID == nil else { return }
         let selected = doc.state.annotations.filter { selection.contains($0.id) }
         for a in selected {
-            let r = toView(Geometry.bounds(of: a)).insetBy(dx: -3, dy: -3)
             ctx.saveGState()
             ctx.setStrokeColor(selBlue.cgColor)
             ctx.setLineWidth(1)
             ctx.setLineDash(phase: 0, lengths: [4, 3])
-            ctx.stroke(r.integral.insetBy(dx: 0.5, dy: 0.5))
+            if a.kind == .text {
+                let cs = Geometry.textCorners(a).map(toView)
+                ctx.addLines(between: cs); ctx.closePath(); ctx.strokePath()
+            } else {
+                let r = toView(Geometry.bounds(of: a)).insetBy(dx: -3, dy: -3)
+                ctx.stroke(r.integral.insetBy(dx: 0.5, dy: 0.5))
+            }
             ctx.restoreGState()
         }
         if selected.count == 1, let a = selected.first {
-            for (h, p) in Geometry.handles(of: a) {
-                let v = toView(p)
-                let hr = CGRect(x: v.x - 4.5, y: v.y - 4.5, width: 9, height: 9)
-                ctx.setFillColor(.white)
-                ctx.setStrokeColor(selBlue.cgColor)
-                ctx.setLineWidth(1.2)
-                if case .p1 = h { ctx.fillEllipse(in: hr); ctx.strokeEllipse(in: hr) }
-                else if case .p2 = h { ctx.fillEllipse(in: hr); ctx.strokeEllipse(in: hr) }
-                else { ctx.fill(hr); ctx.stroke(hr) }
+            let hs = Geometry.handles(of: a, rotateOffset: rotateOffset)
+            // 회전 손잡이와 글자 상자를 잇는 선
+            if a.kind == .text, let rot = hs.first(where: { $0.0 == .rotate })?.1 {
+                let cs = Geometry.textCorners(a)
+                let topMid = toView(CGPoint(x: (cs[0].x + cs[1].x) / 2, y: (cs[0].y + cs[1].y) / 2))
+                ctx.setStrokeColor(selBlue.cgColor); ctx.setLineWidth(1)
+                ctx.move(to: topMid); ctx.addLine(to: toView(rot)); ctx.strokePath()
             }
+            for (h, p) in hs { drawHandle(h, at: toView(p), ctx) }
         }
+    }
+
+    /// 회전 손잡이를 글자 위로 띄우는 거리 (화면 22pt)
+    private var rotateOffset: CGFloat { 22 / k }
+
+    private func drawHandle(_ h: Geometry.Handle, at v: CGPoint, _ ctx: CGContext) {
+        ctx.saveGState()
+        ctx.setFillColor(.white)
+        ctx.setStrokeColor(selBlue.cgColor)
+        ctx.setLineWidth(1.2)
+        ctx.setShadow(offset: CGSize(width: 0, height: 1), blur: 2, color: CGColor(gray: 0, alpha: 0.3))
+        switch h {
+        case .rotate:
+            let r = CGRect(x: v.x - 8, y: v.y - 8, width: 16, height: 16)
+            ctx.fillEllipse(in: r)
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+            ctx.strokeEllipse(in: r)
+            // 둥근 화살표
+            ctx.setLineWidth(1.4)
+            ctx.addArc(center: v, radius: 4.2, startAngle: -.pi * 0.9, endAngle: .pi * 0.55, clockwise: false)
+            ctx.strokePath()
+            let tip = CGPoint(x: v.x + 4.2 * cos(.pi * 0.55), y: v.y + 4.2 * sin(.pi * 0.55))
+            ctx.setFillColor(selBlue.cgColor)
+            ctx.move(to: CGPoint(x: tip.x - 3, y: tip.y - 1.5)); ctx.addLine(to: CGPoint(x: tip.x + 2, y: tip.y - 2.5))
+            ctx.addLine(to: CGPoint(x: tip.x - 0.5, y: tip.y + 2.5)); ctx.closePath(); ctx.fillPath()
+        case .corner:
+            let r = CGRect(x: v.x - 4.5, y: v.y - 4.5, width: 9, height: 9)
+            ctx.fill(r); ctx.setShadow(offset: .zero, blur: 0, color: nil); ctx.stroke(r)
+        default:
+            let r = CGRect(x: v.x - 5, y: v.y - 5, width: 10, height: 10)
+            ctx.fillEllipse(in: r); ctx.setShadow(offset: .zero, blur: 0, color: nil); ctx.strokeEllipse(in: r)
+        }
+        ctx.restoreGState()
     }
 
     private func drawCrop(_ ctx: CGContext) {
@@ -232,29 +269,63 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
 
     // MARK: 커서
 
-    override func resetCursorRects() {
-        let c: NSCursor
-        switch tools.tool {
-        case .select: c = .arrow
-        case .text: c = .iBeam
-        default: c = .crosshair
+    /// 선택한 주석의 손잡이 위인지 (화면 8pt 안)
+    private func handle(at v: CGPoint, of a: Annotation) -> Geometry.Handle? {
+        Geometry.handles(of: a, rotateOffset: rotateOffset)
+            .filter { toView($0.1).distance(to: v) <= ($0.0 == .rotate ? 9 : 8) }
+            .min { toView($0.1).distance(to: v) < toView($1.1).distance(to: v) }?.0
+    }
+
+    /// 마우스 위치에 맞는 커서. 손잡이 위에서는 끄는 방향을 가리키는 ↔ 커서
+    private func cursor(at v: CGPoint) -> NSCursor {
+        if editingID == nil, tools.tool != .crop, selection.count == 1, let id = selection.first, let a = annotation(id),
+           let h = handle(at: v, of: a) {
+            switch h {
+            case .rotate:
+                return HandleCursor.rotate
+            case .p1, .p2:
+                return HandleCursor.resize(along: toView(a.p2) - toView(a.p1))
+            case .corner(let i):
+                return HandleCursor.resize(along: CGPoint(x: 1, y: i % 2 == 0 ? 1 : -1))
+            case .magnify:
+                let c = a.kind == .text ? toView(Geometry.textCenter(a)) : toView(a.p1)
+                let hp = Geometry.handles(of: a).first { $0.0 == .magnify }.map { toView($0.1) } ?? v
+                return HandleCursor.resize(along: hp - c)
+            }
         }
-        addCursorRect(canvasViewRect, cursor: c)
-        for e in [DocumentState.Edge.top, .bottom, .left, .right] { addCursorRect(edgeRect(e), cursor: .pointingHand) }
+        if edge(at: v) != nil { return .pointingHand }
+        guard canvasViewRect.contains(v) else { return .arrow }
+        switch tools.tool {
+        case .select: return .arrow
+        case .text: return .iBeam
+        default: return .crosshair
+        }
+    }
+
+    private func updateCursor() {
+        guard let w = window, case .none = drag else { return }
+        let v = convert(w.mouseLocationOutsideOfEventStream, from: nil)
+        if visibleRect.contains(v) { cursor(at: v).set() }
     }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .activeInKeyWindow, .inVisibleRect],
                                        owner: self, userInfo: nil))
     }
 
-    override func mouseMoved(with e: NSEvent) {
-        hoverEdge = edge(at: convert(e.locationInWindow, from: nil))
+    override func cursorUpdate(with event: NSEvent) {
+        cursor(at: convert(event.locationInWindow, from: nil)).set()
     }
 
-    override func mouseExited(with event: NSEvent) { hoverEdge = nil }
+    override func mouseMoved(with e: NSEvent) {
+        let v = convert(e.locationInWindow, from: nil)
+        hoverEdge = edge(at: v)
+        cursor(at: v).set()
+    }
+
+    override func mouseExited(with event: NSEvent) { hoverEdge = nil; NSCursor.arrow.set() }
 
     // MARK: 마우스
 
@@ -269,7 +340,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
 
         // 선택한 주석의 손잡이 (가장자리 띠보다 먼저, BUG-12)
         if tools.tool != .crop, selection.count == 1, let id = selection.first, let a = annotation(id) {
-            for (h, hp) in Geometry.handles(of: a) where toView(hp).distance(to: v) <= 7 {
+            if let h = handle(at: v, of: a) {
                 drag = .handle(id: id, handle: h, original: a, before: doc.state)
                 return
             }
@@ -376,7 +447,11 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
                 if case .p2 = h { p = Geometry.constrain(p, from: original.p1, kind: original.kind) }
                 if case .p1 = h { p = Geometry.constrain(p, from: original.p2, kind: original.kind) }
             }
-            update(id) { a in Geometry.apply(handle: h, to: &a, point: p, original: original) }
+            let step15 = e.modifierFlags.contains(.shift)
+            update(id) { a in
+                Geometry.apply(handle: h, to: &a, point: p, original: original)
+                if h == .rotate { a.rotation = Double(Geometry.snapAngle(a.angle, step15: step15)) }
+            }
         case let .crop(start):
             cropRect = CGRect(x: min(start.x, p.x), y: min(start.y, p.y), width: abs(p.x - start.x), height: abs(p.y - start.y))
                 .intersection(canvas).integral
@@ -409,7 +484,11 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
             break
         }
         needsDisplay = true
+        updateCursor()
     }
+
+    /// 화면 점검용: 주석을 고른 상태로 만든다
+    func select(_ ids: Set<UUID>) { selection = ids }
 
     private func annotation(_ id: UUID) -> Annotation? { doc.state.annotations.first { $0.id == id } }
 
@@ -555,7 +634,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         }
         lastColor = tools.color
         lastSize = tools.size
-        window?.invalidateCursorRects(for: self)
+        updateCursor()
         needsDisplay = true
     }
 
