@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kkok 편집 창 시안</title>
+<style>
+  :root {
+    --pink:#FC0C59; --win:#ECECEC; --bar:#F6F6F6; --line:#D4D4D4; --ink:#1d1d1f; --sub:#6e6e73;
+    --canvas:#3A3A3C; --tool-on:#FC0C59;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px -apple-system, "Apple SD Gothic Neo", sans-serif; background:#d9dde3; color:var(--ink); padding:24px 16px; }
+  h1 { font-size:18px; margin:0 0 4px; } p.lead { margin:0 0 16px; color:var(--sub); }
+  .wrap { max-width:1060px; margin:0 auto; }
+  .window { background:var(--win); border-radius:12px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,.25), 0 0 0 .5px rgba(0,0,0,.3); }
+  /* 제목 막대 + 상단 도구 막대 */
+  .titlebar { height:52px; display:flex; align-items:center; gap:10px; padding:0 14px; background:var(--bar); border-bottom:1px solid var(--line); }
+  .lights { display:flex; gap:8px; margin-right:10px; } .lights i { width:12px; height:12px; border-radius:50%; display:block; }
+  .lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+  .seg { display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; background:#fff; }
+  .seg button { border:0; background:none; padding:6px 10px; font:inherit; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .seg button + button { border-left:1px solid var(--line); }
+  .seg button:hover { background:#f0f0f0; }
+  .title { flex:1; text-align:center; font-weight:600; color:#444; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:7px; padding:6px 12px; font:inherit; cursor:pointer; }
+  .body { display:flex; height:560px; }
+  /* 왼쪽 도구 막대 */
+  .tools { width:56px; background:var(--bar); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:4px; }
+  .tool { width:40px; height:40px; border-radius:9px; display:grid; place-items:center; cursor:pointer; position:relative; border:0; background:none; color:#333; }
+  .tool:hover { background:#e4e4e4; } .tool.on { background:var(--tool-on); color:#fff; }
+  .tool svg { width:22px; height:22px; }
+  .tool .k { position:absolute; right:2px; bottom:1px; font-size:9px; opacity:.55; }
+  .tool.more::after { content:""; position:absolute; right:4px; bottom:4px; border:3px solid transparent; border-right-color:currentColor; border-bottom-color:currentColor; opacity:.5; }
+  .sep { width:32px; height:1px; background:var(--line); margin:6px 0; }
+  .swatch { width:30px; height:30px; border-radius:50%; background:var(--pink); border:3px solid #fff; box-shadow:0 0 0 1px var(--line); cursor:pointer; }
+  .sizes { display:flex; flex-direction:column; gap:6px; align-items:center; margin-top:6px; }
+  .sizes span { border-radius:50%; background:#444; cursor:pointer; } .sizes span.on { background:var(--pink); }
+  /* 캔버스 */
+  .stage { flex:1; background:var(--canvas); display:grid; place-items:center; position:relative; overflow:hidden; }
+  .img { width:640px; height:400px; background:#fff; position:relative; box-shadow:0 6px 24px rgba(0,0,0,.4); }
+  .edge { position:absolute; background:rgba(252,12,89,.0); transition:.15s; display:grid; place-items:center; color:#fff; font-size:11px; }
+  .stage:hover .edge { background:rgba(255,255,255,.08); }
+  .edge:hover { background:rgba(252,12,89,.35)!important; }
+  .edge.r { top:0; bottom:0; left:calc(50% + 320px); width:22px; } .edge.b { left:calc(50% - 320px); width:640px; top:calc(50% + 200px); height:22px; }
+  /* 가짜 스크린샷 내용 */
+  .fake { position:absolute; inset:0; padding:22px 26px; font-size:13px; color:#333; }
+  .fake .h { font-weight:700; font-size:20px; margin-bottom:12px; }
+  .fake .row { height:12px; background:#e8e8e8; border-radius:4px; margin:9px 0; }
+  .fake .cta { display:inline-block; margin-top:14px; padding:9px 16px; background:#0A84FF; color:#fff; border-radius:7px; font-weight:600; }
+  .fake .mail { position:absolute; left:26px; top:208px; font-size:14px; }
+  .mosaic { position:absolute; left:20px; top:200px; width:230px; height:34px;
+    background-image:linear-gradient(90deg,#cfcfcf 0 25%,#9a9a9a 0 50%,#bdbdbd 0 75%,#888 0),linear-gradient(#0000 50%,#0002 0);
+    background-size:16px 34px,100% 17px; }
+  .sel { position:absolute; outline:1px dashed #0A84FF; }
+  .sel i { position:absolute; width:8px; height:8px; background:#fff; border:1px solid #0A84FF; border-radius:2px; }
+  /* 아래 끌기 막대 */
+  .bottom { height:56px; background:var(--bar); border-top:1px solid var(--line); display:flex; align-items:center; padding:0 14px; gap:14px; }
+  .drag { display:flex; align-items:center; gap:10px; padding:6px 14px 6px 6px; border-radius:10px; background:var(--pink); color:#fff; cursor:grab; box-shadow:0 2px 6px rgba(252,12,89,.35); user-select:none; }
+  .drag .thumb { width:44px; height:30px; border-radius:4px; background:#fff; position:relative; overflow:hidden; }
+  .drag .thumb::after { content:""; position:absolute; left:10px; top:8px; width:22px; height:3px; background:var(--pink); transform:rotate(-25deg); }
+  .drag b { font-size:13px; } .drag small { display:block; opacity:.85; font-size:11px; }
+  .meta { color:var(--sub); } .spacer { flex:1; }
+  .zoom { color:var(--sub); }
+  /* 팝오버 */
+  .pop { position:absolute; left:62px; background:#fff; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.25); padding:10px; display:none; z-index:5; }
+  .pop.show { display:block; }
+  .colors { display:grid; grid-template-columns:repeat(4,26px); gap:8px; }
+  .colors span { width:26px; height:26px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); cursor:pointer; }
+  .colors span.on { outline:2px solid var(--ink); outline-offset:2px; }
+  .stamps { display:flex; gap:8px; }
+  .stamps span { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:800; font-size:17px; }
+  .notes { margin-top:20px; background:#fff; border-radius:10px; padding:14px 18px; line-height:1.6; }
+  .notes h2 { font-size:15px; margin:4px 0 6px; }
+  .notes ol { margin:0; padding-left:20px; }
+  @media (max-width:760px){ .img{width:300px;height:220px} .edge{display:none} .titlebar .seg button span{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kkok 편집 창 시안 v0.1</h1>
+  <p class="lead">왼쪽 도구를 눌러 보세요. 색 원을 누르면 팔레트, 스탬프를 누르면 스탬프 목록이 열립니다. 실제 그리기는 되지 않는 화면 시안입니다.</p>
+
+  <div class="window">
+    <div class="titlebar">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="seg">
+        <button title="영역 ⇧⌘5">⬚ <span>영역</span></button>
+        <button title="창 ⇧⌘7">▢ <span>창</span></button>
+        <button title="전체 ⇧⌘6">⛶ <span>전체</span></button>
+        <button title="타이머 ⌃⇧⌘5">⏱ <span>5초</span></button>
+      </div>
+      <div class="title">2026-11-13 14.32.08</div>
+      <button class="btn">복사 ⌘C</button>
+      <button class="btn">저장…</button>
+    </div>
+
+    <div class="body">
+      <div class="tools" id="tools">
+        <button class="tool" data-k="V" title="선택 V"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 8-6 1.5L10 19z"/></svg></button>
+        <button class="tool on" data-k="A" title="화살표 A"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20 L16.5 6.5 L13 5.5 L20 3.5 L18.5 10.5 L17.4 7.3 L5.2 21.2z"/></svg></button>
+        <button class="tool" data-k="T" title="글자 T"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14v4h-2.2l-.4-1.8H13.3V18l2 .7V20H8.7v-1.3l2-.7V6.2H7.6L7.2 8H5z"/></svg></button>
+        <button class="tool more" data-k="R" title="도형 R (사각·둥근 사각·타원·선)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+        <button class="tool" data-k="P" title="펜 P"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 17c3-6 5-9 7-6s3 5 5 1 2-6 4-7"/></svg></button>
+        <button class="tool" data-k="H" title="형광펜 H"><svg viewBox="0 0 24 24"><path d="M3 15h18v5H3z" fill="#FFF700" opacity=".9"/><path d="M14 3l5 5-7 7H7v-5z" fill="currentColor"/></svg></button>
+        <button class="tool" data-k="B" title="모자이크 B"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h5v5H4zm5 5h6v6H9zm6-5h5v5h-5zM4 15h5v5H4zm11 0h5v5h-5z"/></svg></button>
+        <button class="tool more" data-k="S" id="stampBtn" title="스탬프 S"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M7.5 12.5l3 3 6-7" stroke="#fff" stroke-width="2.4" fill="none"/></svg></button>
+        <button class="tool" data-k="C" title="자르기 C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2v16h16M2 6h16v16"/></svg></button>
+        <div class="sep"></div>
+        <div class="swatch" id="swatch" title="색"></div>
+        <div class="sizes" id="sizes">
+          <span style="width:6px;height:6px"></span>
+          <span class="on" style="width:10px;height:10px"></span>
+          <span style="width:15px;height:15px"></span>
+        </div>
+      </div>
+
+      <div class="pop" id="colorPop" style="top:440px">
+        <div class="colors" id="colors"></div>
+      </div>
+      <div class="pop" id="stampPop" style="top:330px">
+        <div class="stamps">
+          <span style="background:#34C759">✓</span><span style="background:#FF3B30">✕</span>
+          <span style="background:#0A84FF">?</span><span style="background:#FF9500">!</span>
+          <span style="background:#FFCC00">★</span><span style="background:#FC0C59">1</span>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="img">
+          <div class="fake">
+            <div class="h">회원 정보</div>
+            <div class="row" style="width:70%"></div><div class="row" style="width:52%"></div><div class="row" style="width:60%"></div>
+            <span class="cta">저장하기</span>
+          </div>
+          <div class="mosaic" title="모자이크로 가린 이메일"></div>
+          <!-- 화살표 -->
+          <svg style="position:absolute;left:0;top:0" width="640" height="400">
+            <path d="M420 300 L178 150" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+            <path d="M420 300 L190 156" stroke="#FC0C59" stroke-width="9" stroke-linecap="round"/>
+            <path d="M162 140 L208 147 L190 172 Z" fill="#FC0C59" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+            <text x="360" y="336" font-family="Apple SD Gothic Neo, sans-serif" font-weight="800" font-size="24" fill="#FC0C59" stroke="#fff" stroke-width="5" paint-order="stroke">이 버튼 위치 바꿔 주세요</text>
+            <rect x="460" y="40" width="150" height="90" rx="10" fill="none" stroke="#fff" stroke-width="8"/>
+            <rect x="460" y="40" width="150" height="90" rx="10" fill="none" stroke="#FC0C59" stroke-width="4"/>
+            <circle cx="610" cy="40" r="17" fill="#FC0C59" stroke="#fff" stroke-width="3"/>
+            <text x="610" y="47" text-anchor="middle" font-weight="800" font-size="19" fill="#fff">1</text>
+          </svg>
+          <div class="sel" style="left:456px;top:36px;width:158px;height:98px">
+            <i style="left:-4px;top:-4px"></i><i style="right:-4px;top:-4px"></i><i style="left:-4px;bottom:-4px"></i><i style="right:-4px;bottom:-4px"></i>
+          </div>
+        </div>
+        <div class="edge r" title="클릭하면 오른쪽으로 캔버스를 넓힘">＋</div>
+        <div class="edge b" title="클릭하면 아래로 캔버스를 넓힘">＋</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="drag" title="끌어서 다른 앱에 놓으면 PNG로 들어갑니다">
+        <div class="thumb"></div>
+        <div><b>끌어서 붙이기</b><small>PNG · 1280×800</small></div>
+      </div>
+      <span class="meta">~/Pictures/Kkok 에 자동 저장됨</span>
+      <span class="spacer"></span>
+      <span class="zoom">− 100% ＋</span>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>이 시안에서 확인할 점</h2>
+    <ol>
+      <li><b>배치</b> — 위: 캡처 버튼·복사·저장 / 왼쪽: 세로 도구 막대(Skitch와 같은 위치) / 아래: 분홍 "끌어서 붙이기" 탭.</li>
+      <li><b>주석 모양</b> — 화살표·글자·도형 모두 흰 외곽선을 둘러 어떤 배경에서도 보이게.</li>
+      <li><b>도형 묶음</b> — 사각·둥근 사각·타원·선을 한 버튼에 묶고 길게 누르거나 작은 삼각형을 누르면 고름.</li>
+      <li><b>색 8개</b> — 분홍(기본)·빨강·주황·노랑·초록·파랑·검정·흰색 + 사용자 지정.</li>
+      <li><b>캔버스 넓히기</b> — 이미지 오른쪽·아래 가장자리 띠에 마우스를 올리면 ＋가 보이고 누르면 넓어짐.</li>
+    </ol>
+  </div>
+</div>
+<script>
+  const COLORS=['#FC0C59','#FF3B30','#FF9500','#FFD60A','#34C759','#0A84FF','#1C1C1E','#FFFFFF'];
+  const colors=document.getElementById('colors'), sw=document.getElementById('swatch');
+  COLORS.forEach((c,i)=>{const s=document.createElement('span');s.style.background=c;if(!i)s.className='on';
+    s.onclick=()=>{colors.querySelectorAll('span').forEach(x=>x.className='');s.className='on';sw.style.background=c;document.documentElement.style.setProperty('--tool-on',c==='#FFFFFF'?'#888':c);hide();};colors.appendChild(s);});
+  const cp=document.getElementById('colorPop'), sp=document.getElementById('stampPop');
+  function hide(){cp.classList.remove('show');sp.classList.remove('show');}
+  sw.onclick=e=>{e.stopPropagation();sp.classList.remove('show');cp.classList.toggle('show');};
+  document.querySelectorAll('.tool').forEach(t=>t.onclick=e=>{e.stopPropagation();document.querySelectorAll('.tool').forEach(x=>x.classList.remove('on'));t.classList.add('on');hide();if(t.id==='stampBtn')sp.classList.add('show');});
+  document.querySelectorAll('#sizes span').forEach(s=>s.onclick=()=>{document.querySelectorAll('#sizes span').forEach(x=>x.classList.remove('on'));s.classList.add('on');});
+  document.body.onclick=hide;
+</script>
+</body>
+</html>
