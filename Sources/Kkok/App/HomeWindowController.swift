@@ -45,13 +45,8 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
             (.fullscreen, "전체 화면", "display"), (.timed, "\(Preferences.shared.timerSeconds)초 타이머", "timer"),
         ]
         let buttons = modes.map { mode, label, symbol -> NSView in
-            let b = NSButton(title: label, image: NSImage(systemSymbolName: symbol, accessibilityDescription: label)!,
-                             target: self, action: #selector(capture(_:)))
-            b.identifier = NSUserInterfaceItemIdentifier(mode.rawValue)
-            b.imagePosition = .imageAbove
-            b.bezelStyle = .regularSquare
-            b.font = .systemFont(ofSize: 13, weight: .semibold)
-            b.symbolConfiguration = .init(pointSize: 22, weight: .regular)
+            let b = CaptureTile(title: label, symbol: symbol) { [weak self] in self?.capture(mode) }
+            b.toolTip = mode.title
             b.translatesAutoresizingMaskIntoConstraints = false
             b.widthAnchor.constraint(equalToConstant: 130).isActive = true
             b.heightAnchor.constraint(equalToConstant: 72).isActive = true
@@ -168,8 +163,7 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
         super.showWindow(sender)
     }
 
-    @objc private func capture(_ sender: NSButton) {
-        guard let raw = sender.identifier?.rawValue, let mode = CaptureMode(rawValue: raw) else { return }
+    private func capture(_ mode: CaptureMode) {
         // 시작 창이 화면에서 완전히 사라진 뒤에 화면을 얼린다
         window?.orderOut(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { CaptureController.shared.start(mode) }
@@ -194,4 +188,51 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
     }
 
     static let didClose = Notification.Name("KkokHomeDidClose")
+}
+
+/// 시작 창의 캡처 버튼: 아이콘과 글자를 한 묶음으로 버튼 정중앙에 둔다
+final class CaptureTile: NSView {
+    private let action: () -> Void
+    private var hover = false { didSet { needsDisplay = true } }
+    private var pressed = false { didSet { needsDisplay = true } }
+
+    init(title: String, symbol: String, action: @escaping () -> Void) {
+        self.action = action
+        super.init(frame: .zero)
+        let icon = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: title)!
+            .withSymbolConfiguration(.init(pointSize: 22, weight: .regular))!)
+        icon.contentTintColor = .labelColor
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        let stack = NSStackView(views: [icon, label])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let r = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let p = NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8)
+        (pressed ? NSColor.quaternaryLabelColor : hover ? NSColor.controlBackgroundColor.blended(withFraction: 0.04, of: .black) ?? .controlBackgroundColor : .controlBackgroundColor).setFill()
+        p.fill()
+        NSColor.separatorColor.setStroke()
+        p.stroke()
+    }
+
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false; pressed = false }
+    override func mouseDown(with event: NSEvent) { pressed = true }
+    override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        pressed = false
+        if inside { action() }
+    }
 }
