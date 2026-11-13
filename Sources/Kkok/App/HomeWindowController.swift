@@ -7,6 +7,8 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
     private let permissionRow = NSStackView()
     private let emptyLabel = NSTextField(labelWithString: "아직 캡처가 없습니다. 위 버튼이나 단축키로 시작하세요.")
     var onOpenRecent: ((UUID) -> Void)?
+    /// 최근 캡처를 읽어 올 보관함 (데모 이미지는 임시 보관함을 쓴다)
+    var store: HistoryStore = .shared
 
     init() {
         let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 620, height: 470),
@@ -135,10 +137,10 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
         }
 
         recentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let items = HistoryStore.shared.recent(limit: 5)
+        let items = store.recent(limit: 5)
         emptyLabel.isHidden = !items.isEmpty
         for m in items {
-            let img = NSImage(contentsOf: HistoryStore.shared.thumbnailURL(id: m.id)) ?? NSImage()
+            let img = NSImage(contentsOf: store.thumbnailURL(id: m.id)) ?? NSImage()
             let b = NSButton(image: img, target: self, action: #selector(openRecent(_:)))
             b.identifier = NSUserInterfaceItemIdentifier(m.id.uuidString)
             b.imageScaling = .scaleProportionallyDown
@@ -148,7 +150,9 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
             b.translatesAutoresizingMaskIntoConstraints = false
             b.widthAnchor.constraint(equalToConstant: 104).isActive = true
             b.heightAnchor.constraint(equalToConstant: 72).isActive = true
-            let label = NSTextField(labelWithString: String(m.name.suffix(8)))
+            // 이름 "yyyy-MM-dd HH.mm.ss[ n]"에서 날짜 뒤 시각 부분만
+            let time = m.name.split(separator: " ", maxSplits: 1).last.map(String.init) ?? m.name
+            let label = NSTextField(labelWithString: time)
             label.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
             label.textColor = .secondaryLabelColor
             let col = NSStackView(views: [b, label])

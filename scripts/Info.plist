@@ -16,7 +16,7 @@
     <!-- 평소에는 메뉴 막대에만 있고, 편집 창이 열리면 Dock에 나타난다 -->
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSHumanReadableCopyright</key><string>개인용 · Skitch를 대신하는 캡처·주석 도구</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 ReentaKim · MIT License</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

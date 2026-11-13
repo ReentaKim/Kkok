@@ -217,6 +217,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: w)
     }
 
+    /// 화면 점검·데모 이미지용: 아래 상태 문구를 바꾼다
+    func overrideStatus(_ s: String) { statusLabel.stringValue = s }
+
     @objc private func docSaved() {
         if let p = doc.meta.exportedPath {
             statusLabel.stringValue = "자동 저장됨 · " + (p as NSString).abbreviatingWithTildeInPath

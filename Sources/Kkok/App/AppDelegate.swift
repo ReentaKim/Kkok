@@ -434,10 +434,10 @@ enum StatusIcon {
 /// 개발 점검용: 화면에 띄우지 않고 편집 창을 그려 PNG로 저장한다.
 /// KKOK_SNAPSHOT_IN=이미지 KKOK_SNAPSHOT_OUT=결과.png .build/release/Kkok
 enum DevSnapshot {
-    static func runHome(output: URL) {
-        let wc = HomeWindowController()
-        wc.reload()
-        guard let window = wc.window, let view = window.contentView?.superview else { exit(1) }
+    private static var env: [String: String] { ProcessInfo.processInfo.environment }
+
+    private static func capture(_ window: NSWindow, to output: URL, cleanup: URL? = nil) {
+        guard let view = window.contentView?.superview else { exit(1) }
         window.setFrameOrigin(CGPoint(x: -10000, y: -10000))
         window.orderFront(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -445,49 +445,115 @@ enum DevSnapshot {
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
             view.cacheDisplay(in: view.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: output)
+            if let cleanup { try? FileManager.default.removeItem(at: cleanup) }
             exit(0)
         }
     }
 
-    static func run(input: URL, output: URL) {
+    private static func tempStore() -> (HistoryStore, URL) {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("kkok-snapshot-\(UUID().uuidString)")
-        let store = HistoryStore(root: tmp, picturesDir: tmp.appendingPathComponent("pics"))
+        return (HistoryStore(root: tmp, picturesDir: tmp.appendingPathComponent("pics")), tmp)
+    }
+
+    /// 시작 창. KKOK_SNAPSHOT_IN이 있으면 그 이미지로 만든 임시 최근 캡처를 보여 준다(실제 보관함은 읽지 않음)
+    static func runHome(output: URL) {
+        // 번들 밖에서 실행하면 앱 아이콘이 없으므로 저장소의 아이콘을 쓴다
+        if let icon = env["KKOK_ICON_PATH"], let img = NSImage(contentsOfFile: icon) { NSApp.applicationIconImage = img }
+        let wc = HomeWindowController()
+        var cleanup: URL?
+        if let input = env["KKOK_SNAPSHOT_IN"], let img = Renderer.loadImage(URL(fileURLWithPath: input)) {
+            let (store, tmp) = tempStore()
+            cleanup = tmp
+            for i in 0..<3 {
+                if let doc = EditorDocument.create(image: img, scale: 1, store: store) {
+                    doc.state.annotations = demoAnnotations(scale: 1).prefix(2 + i * 2).map { $0 }
+                    doc.saveNow()
+                }
+            }
+            wc.store = store
+        }
+        wc.reload()
+        guard let window = wc.window else { exit(1) }
+        capture(window, to: output, cleanup: cleanup)
+    }
+
+    static func run(input: URL, output: URL) {
+        let (store, tmp) = tempStore()
         guard let img = Renderer.loadImage(input),
               let doc = EditorDocument.create(image: img, scale: AppDelegate.scale(of: input), store: store) else { exit(1) }
-        // 견본 주석
-        var a = Annotation(kind: .arrow, color: .pink, size: 2, scale: Double(doc.scale))
-        a.p1 = CGPoint(x: CGFloat(img.width) * 0.7, y: CGFloat(img.height) * 0.7)
-        a.p2 = CGPoint(x: CGFloat(img.width) * 0.35, y: CGFloat(img.height) * 0.35)
-        var t = Annotation(kind: .text, color: .pink, size: 2, scale: Double(doc.scale))
-        t.p1 = CGPoint(x: CGFloat(img.width) * 0.4, y: CGFloat(img.height) * 0.75); t.text = "여기를 고쳐 주세요"
-        doc.state.annotations = [a, t]
-        // 글꼴 견본
-        for (i, f) in TextFont.allCases.enumerated() {
-            var ft = Annotation(kind: .text, color: RGBA.palette[(i * 2) % 12], size: 2, scale: Double(doc.scale))
-            ft.font = f
-            ft.text = f.title
-            ft.p1 = CGPoint(x: 20 * doc.scale, y: CGFloat(20 + i * 40) * doc.scale)
-            doc.state.annotations.append(ft)
+        var selectID: UUID?
+        if env["KKOK_SNAPSHOT_DEMO"] != nil {
+            doc.state.annotations = demoAnnotations(scale: Double(doc.scale))
+            if env["KKOK_SNAPSHOT_SELECT_ROTATED"] != nil { selectID = doc.state.annotations.first { $0.rotation != nil }?.id }
+        } else {
+            var a = Annotation(kind: .arrow, color: .pink, size: 2, scale: Double(doc.scale))
+            a.p1 = CGPoint(x: CGFloat(img.width) * 0.7, y: CGFloat(img.height) * 0.7)
+            a.p2 = CGPoint(x: CGFloat(img.width) * 0.35, y: CGFloat(img.height) * 0.35)
+            var t = Annotation(kind: .text, color: .pink, size: 2, scale: Double(doc.scale))
+            t.p1 = CGPoint(x: CGFloat(img.width) * 0.4, y: CGFloat(img.height) * 0.75); t.text = "여기를 고쳐 주세요"
+            doc.state.annotations = [a, t]
+            for (i, f) in TextFont.allCases.enumerated() {
+                var ft = Annotation(kind: .text, color: RGBA.palette[(i * 2) % 12], size: 2, scale: Double(doc.scale))
+                ft.font = f
+                ft.text = f.title
+                ft.p1 = CGPoint(x: 20 * doc.scale, y: CGFloat(20 + i * 40) * doc.scale)
+                doc.state.annotations.append(ft)
+            }
+            var rt = Annotation(kind: .text, color: RGBA.palette[8], size: 3, scale: Double(doc.scale))
+            rt.font = .jua
+            rt.text = "회전 20°"
+            rt.p1 = CGPoint(x: CGFloat(img.width) * 0.62, y: CGFloat(img.height) * 0.1)
+            rt.rotation = 20 * .pi / 180
+            doc.state.annotations.append(rt)
+            selectID = rt.id
         }
-        // 회전한 글자 견본 (선택해서 손잡이까지 보이게)
-        var rt = Annotation(kind: .text, color: RGBA.palette[8], size: 3, scale: Double(doc.scale))
-        rt.font = .jua
-        rt.text = "회전 20°"
-        rt.p1 = CGPoint(x: CGFloat(img.width) * 0.62, y: CGFloat(img.height) * 0.1)
-        rt.rotation = 20 * .pi / 180
-        doc.state.annotations.append(rt)
         let wc = EditorWindowController(doc: doc)
-        wc.canvas.select([rt.id])
-        guard let window = wc.window, let view = window.contentView?.superview else { exit(1) }
-        window.setFrameOrigin(CGPoint(x: -10000, y: -10000))
-        window.orderFront(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            view.layoutSubtreeIfNeeded()
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
-            view.cacheDisplay(in: view.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: output)
-            try? FileManager.default.removeItem(at: tmp)
-            exit(0)
-        }
+        if let selectID { wc.canvas.select([selectID]) }
+        wc.overrideStatus("자동 저장됨 · ~/Pictures/Kkok/\(doc.name).png")
+        guard let window = wc.window else { exit(1) }
+        capture(window, to: output, cleanup: tmp)
+    }
+
+    /// README 데모(가상의 "Team Board" 설정 화면, 1100×680)에 맞춘 주석
+    static func demoAnnotations(scale s: Double) -> [Annotation] {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+        var list: [Annotation] = []
+        // 이메일 가리기
+        var px = Annotation(kind: .pixelate, color: .pink, size: 2, scale: s)
+        px.p1 = pt(300, 404); px.p2 = pt(560, 434)
+        list.append(px)
+        // 저장 버튼 짚기
+        var ar = Annotation(kind: .arrow, color: .pink, size: 3, scale: s)
+        ar.p1 = pt(604, 640); ar.p2 = pt(422, 594)
+        list.append(ar)
+        var tx = Annotation(kind: .text, color: .pink, size: 2, scale: s)
+        tx.text = "버튼을 오른쪽 끝으로 옮겨 주세요"
+        tx.p1 = pt(616, 624)
+        list.append(tx)
+        // 알림 토글
+        var rr = Annotation(kind: .roundedRect, color: RGBA.palette[7], size: 2, scale: s)
+        rr.p1 = pt(788, 310); rr.p2 = pt(924, 390)
+        list.append(rr)
+        var n1 = Annotation(kind: .stamp, color: RGBA.palette[7], size: 1, scale: s)
+        n1.stamp = .number; n1.number = 1; n1.p1 = pt(924, 310)
+        list.append(n1)
+        var pen = Annotation(kind: .text, color: RGBA.palette[7], size: 2, scale: s)
+        pen.font = .nanumPen; pen.text = "기본은 꺼 두기"
+        pen.p1 = pt(800, 398)
+        list.append(pen)
+        // 설명 강조
+        var hl = Annotation(kind: .highlighter, color: .highlighterYellow, size: 2, scale: s)
+        hl.points = [pt(296, 166), pt(390, 165), pt(482, 166)]
+        list.append(hl)
+        // 사진 바꾸기 승인
+        var ok = Annotation(kind: .stamp, color: .pink, size: 2, scale: s)
+        ok.stamp = .check; ok.p1 = pt(486, 234)
+        list.append(ok)
+        // 기울인 글자
+        var rot = Annotation(kind: .text, color: RGBA.palette[8], size: 3, scale: s)
+        rot.font = .jua; rot.text = "좋아요!"
+        rot.p1 = pt(48, 380); rot.rotation = -12 * .pi / 180
+        list.append(rot)
+        return list
     }
 }
