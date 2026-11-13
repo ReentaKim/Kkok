@@ -95,16 +95,25 @@
 
 ## 📦 설치
 
-1. [Releases](https://github.com/ReentaKim/Kkok/releases/latest)에서 `Kkok-x.y.z.zip`을 받아 풉니다.
-2. `Kkok.app`을 **응용 프로그램** 폴더로 옮기고 엽니다.
-3. 처음 캡처할 때 **화면 기록 권한**을 켜 줍니다(시스템 설정 › 개인정보 보호 및 보안 › 화면 및 시스템 오디오 녹음).
+**Homebrew (추천)**
+
+```bash
+brew trust --cask reentakim/tap/kkok      # 처음 한 번: 이 tap의 Kkok을 믿고 설치하겠다는 등록
+brew install --cask reentakim/tap/kkok
+```
+
+업데이트는 `brew upgrade --cask kkok`, 지우기는 `brew uninstall --cask kkok`입니다. Homebrew로 설치하면 "확인되지 않은 개발자" 경고가 뜨지 않습니다.
+
+**직접 받기**: [Releases](https://github.com/ReentaKim/Kkok/releases/latest)에서 `Kkok-x.y.z.zip`을 받아 풀고, `Kkok.app`을 **응용 프로그램** 폴더로 옮깁니다.
+
+처음 캡처할 때 **화면 기록 권한**을 켜 줍니다(시스템 설정 › 개인정보 보호 및 보안 › 화면 및 시스템 오디오 녹음).
 
 <details>
-<summary><b>처음 열 때 "확인되지 않은 개발자" 경고가 뜨면</b></summary>
+<summary><b>직접 받은 앱을 처음 열 때 "확인되지 않은 개발자" 경고가 뜨면</b></summary>
 
 <br/>
 
-Kkok은 Apple 공증을 받지 않은 개인 프로젝트입니다. 소스가 모두 공개돼 있고 [직접 빌드](#-직접-빌드하기)할 수도 있습니다.
+Kkok은 Apple 공증을 받지 않은 개인 프로젝트입니다. 소스가 모두 공개돼 있고 [직접 빌드](#-직접-빌드하기)할 수도 있습니다. Homebrew로 설치하면 이 경고가 뜨지 않습니다.
 
 - **macOS 15 이상**: 한 번 열어 경고를 닫은 뒤 **시스템 설정 › 개인정보 보호 및 보안** 맨 아래의 **"그래도 열기"**를 누릅니다.
 - 또는 터미널에서 한 줄:

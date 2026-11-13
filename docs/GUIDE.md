@@ -20,6 +20,20 @@
 
 ## 1. 설치하기
 
+### Homebrew로 설치 (추천)
+
+```bash
+brew trust --cask reentakim/tap/kkok      # 처음 한 번
+brew install --cask reentakim/tap/kkok
+```
+
+- `brew trust`는 최신 Homebrew가 공식 목록 밖의 앱을 설치하기 전에 요구하는 등록입니다. 처음 한 번만 하면 됩니다.
+- 업데이트: `brew upgrade --cask kkok`
+- 지우기: `brew uninstall --cask kkok` (설정과 보관함까지 지우려면 `brew uninstall --zap --cask kkok`. 내보낸 PNG가 있는 `~/Pictures/Kkok`은 남깁니다)
+- Homebrew로 설치하면 아래의 "확인되지 않은 개발자" 경고가 뜨지 않습니다.
+
+### 직접 받아 설치
+
 1. [Releases](https://github.com/ReentaKim/Kkok/releases/latest)에서 `Kkok-x.y.z.zip`을 받아 압축을 풉니다.
 2. `Kkok.app`을 **응용 프로그램** 폴더로 옮깁니다.
 3. Kkok을 엽니다.
@@ -217,6 +231,8 @@ Kkok을 완전히 끄고(`⌘Q` 또는 메뉴 막대 메뉴 › Kkok 종료) 다
 모자이크는 원본을 큰 칸으로 뭉개서 그립니다. 내보낸 PNG에서 가린 글자는 복원할 수 없습니다. 다만 Kkok 보관함(`~/Library/Application Support/Kkok/history/`)에는 다시 고칠 수 있도록 원본이 남아 있습니다.
 
 ## 12. 지우기
+
+Homebrew로 설치했다면 `brew uninstall --cask kkok` 한 줄이면 됩니다(`--zap`을 붙이면 설정과 보관함도 지웁니다). 직접 설치했다면:
 
 1. 메뉴 막대 메뉴 › **Kkok 종료**
 2. `/Applications/Kkok.app`을 휴지통으로
