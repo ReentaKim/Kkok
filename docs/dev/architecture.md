@@ -54,6 +54,8 @@ scripts/generate-icons.sh           # 아이콘 다시 그리기
 | 시작 창(FR-45): 직접 실행·아이콘 다시 누름 | `App/HomeWindowController.swift` |
 | 글꼴 4개(OFL, 프로세스 안에서만 등록, FR-23) | `Model/FontRegistry.swift`, `Resources/Fonts`, `Resources/licenses` |
 | 하위 막대(FR-26): 도형·스탬프·글꼴·색, 덮어 열림 | `Tools/SubToolPanel.swift`, 배치는 `Canvas/EditorWindowController.swift` |
+| 자체 업데이트(FR-28): 확인·받기·SHA-256/번들 ID/버전/서명 검증·종료 후 교체, Homebrew 설치는 brew 안내 | `App/Updater.swift`. 끝까지 시험은 `scripts/test-update.sh`(가짜 로컬 릴리스 서버, 실제 GitHub·설치된 앱은 건드리지 않음) |
+| 캡처 소리(FR-27) | `Capture/CaptureSound.swift` |
 | 글자 회전·손잡이 커서(FR-24·25) | `Model/Geometry.swift`(textCorners·rotate·snapAngle), `Canvas/HandleCursor.swift` |
 | 오버레이 종료 시 해제된 선택기 참조로 죽던 문제(BUG-14) | `Capture/SelectionOverlay.swift` (`weak owner`) |
 

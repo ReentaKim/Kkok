@@ -5,6 +5,8 @@ import AppKit
 final class HomeWindowController: NSWindowController, NSWindowDelegate {
     private let recentStack = NSStackView()
     private let permissionRow = NSStackView()
+    /// 새 버전이 있을 때만 보이는 줄 (FR-28)
+    private let updateRow = NSStackView()
     private let emptyLabel = NSTextField(labelWithString: "아직 캡처가 없습니다. 위 버튼이나 단축키로 시작하세요.")
     var onOpenRecent: ((UUID) -> Void)?
     /// 최근 캡처를 읽어 올 보관함 (데모 이미지는 임시 보관함을 쓴다)
@@ -76,6 +78,7 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
 
         // 권한 상태
         permissionRow.spacing = 8
+        updateRow.spacing = 8
 
         // 최근 캡처
         let recentTitle = NSTextField(labelWithString: "최근 캡처")
@@ -92,7 +95,7 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
         showAtLaunch.state = Preferences.shared.showHomeAtLaunch ? .on : .off
         showAtLaunch.font = .systemFont(ofSize: 11)
 
-        let stack = NSStackView(views: [header, captureRow, more, permissionRow, recentTitle, recentStack, emptyLabel, hint, showAtLaunch])
+        let stack = NSStackView(views: [header, captureRow, more, permissionRow, updateRow, recentTitle, recentStack, emptyLabel, hint, showAtLaunch])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 14
@@ -135,6 +138,18 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate {
             b.controlSize = .small
             permissionRow.addArrangedSubview(b)
         }
+
+        updateRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        if let v = Updater.shared.pending?.version {
+            let icon = NSImageView(image: NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)!)
+            icon.contentTintColor = .controlAccentColor
+            let t = NSTextField(labelWithString: "새 버전 \(v)이 나왔습니다")
+            t.font = .systemFont(ofSize: 12, weight: .semibold)
+            let b = NSButton(title: "받기…", target: NSApp.delegate, action: #selector(AppDelegate.offerUpdate(_:)))
+            b.controlSize = .small
+            [icon, t, b].forEach(updateRow.addArrangedSubview)
+        }
+        updateRow.isHidden = Updater.shared.pending == nil
 
         recentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let items = store.recent(limit: 5)

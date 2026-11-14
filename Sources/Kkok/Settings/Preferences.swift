@@ -207,6 +207,12 @@ final class Preferences {
     }
 
     /// 앱을 직접 실행할 때 시작 창 보기 (기본 켬)
+    /// 업데이트 자동 확인 (기본 켬, FR-28)
+    var autoUpdateCheck: Bool {
+        get { d.object(forKey: "autoUpdateCheck") == nil ? true : d.bool(forKey: "autoUpdateCheck") }
+        set { d.set(newValue, forKey: "autoUpdateCheck") }
+    }
+
     /// 캡처할 때 "찰칵" 소리 (기본 켬)
     var captureSound: Bool {
         get { d.object(forKey: "captureSound") == nil ? true : d.bool(forKey: "captureSound") }

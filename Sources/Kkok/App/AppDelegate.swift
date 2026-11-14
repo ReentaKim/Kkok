@@ -38,6 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DevSnapshot.run(input: URL(fileURLWithPath: input), output: URL(fileURLWithPath: output))
             return
         }
+        // 업데이트 시험 모드: 메뉴 막대·단축키 없이 업데이트만 진행한다
+        if ProcessInfo.processInfo.environment["KKOK_UPDATE_AUTOINSTALL"] != nil {
+            Updater.shared.start()
+            return
+        }
         buildStatusItem()
         registerHotKeys()
         NotificationCenter.default.addObserver(self, selector: #selector(registerHotKeys), name: Preferences.didChange, object: nil)
@@ -57,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Preferences.shared.didShowWelcome = true
             LaunchAtLogin.enabled = true
         }
+
+        // 업데이트 확인 (FR-28)
+        NotificationCenter.default.addObserver(self, selector: #selector(updaterChanged), name: Updater.didChange, object: nil)
+        Updater.shared.start()
 
         // 직접 실행했으면 시작 창 (로그인 자동 실행·파일 열기로 실행된 경우는 제외) (FR-45)
         let launchedAtLogin = Self.isLoginLaunch()
@@ -105,6 +114,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             wc.canvas.endTextEditing()
             wc.doc.saveNow()
         }
+        // 받아 둔 업데이트가 있으면 앱이 끝난 뒤 바꾼다
+        Updater.shared.runInstallerIfNeeded()
+    }
+
+    // MARK: 업데이트 (FR-28)
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        Task { @MainActor in await Updater.shared.check(manual: true) }
+    }
+
+    @objc func offerUpdate(_ sender: Any?) { Task { @MainActor in Updater.shared.offer() } }
+
+    /// 새 버전을 찾으면 메뉴 막대 아이콘에 점을 찍고 메뉴에 "새 버전 받기"를 보인다
+    @objc private func updaterChanged() {
+        let has = Updater.shared.pending != nil
+        statusItem?.button?.image = StatusIcon.make(badge: has)
+        statusItem?.button?.toolTip = has ? "Kkok — 새 버전 \(Updater.shared.pending!.version)" : "Kkok"
+        home?.reload()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -123,6 +150,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.button?.toolTip = "Kkok"
         let menu = NSMenu()
         menu.delegate = self
+        let upd = NSMenuItem(title: "새 버전 받기", action: #selector(offerUpdate(_:)), keyEquivalent: "")
+        upd.target = self
+        upd.tag = 9001
+        upd.isHidden = true
+        menu.addItem(upd)
         menu.addItem(withTitle: "Kkok 열기", action: #selector(showHome(_:)), keyEquivalent: "").target = self
         menu.addItem(.separator())
         for mode in CaptureMode.allCases {
@@ -141,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "캡처 폴더 열기", action: #selector(openPicturesFolder(_:)), keyEquivalent: "").target = self
         menu.addItem(withTitle: "설정…", action: #selector(showSettings(_:)), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: "업데이트 확인…", action: #selector(checkForUpdates(_:)), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Kkok 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
@@ -148,6 +181,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if let upd = menu.item(withTag: 9001) {
+            upd.isHidden = Updater.shared.pending == nil
+            if let v = Updater.shared.pending?.version { upd.title = "⬆︎ 새 버전 \(v) 받기…" }
+        }
         // 다른 앱(예: Skitch)이 쓰던 단축키가 풀렸으면 다시 잡는다
         if !HotKeyCenter.shared.failures.isEmpty { registerHotKeys() }
         // 단축키 표시를 현재 설정으로
@@ -331,6 +368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
         app.addItem(withTitle: "Kkok에 관하여", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "업데이트 확인…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "설정…", action: #selector(showSettings(_:)), keyEquivalent: ",")
         app.addItem(.separator())
@@ -409,11 +447,13 @@ enum LaunchAtLogin {
 
 /// 메뉴 막대 아이콘: 점 하나를 화살표가 콕 짚는 모양 (템플릿 이미지)
 enum StatusIcon {
-    static func make() -> NSImage {
+    /// `badge`: 새 버전이 있으면 오른쪽 위에 작은 점
+    static func make(badge: Bool = false) -> NSImage {
         let img = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
             ctx.setFillColor(NSColor.black.cgColor)
             ctx.fillEllipse(in: CGRect(x: 2, y: 2, width: 5.5, height: 5.5))
+            if badge { ctx.fillEllipse(in: CGRect(x: 13, y: 0.5, width: 4.5, height: 4.5)) }
             let path = Geometry.arrowPath(from: CGPoint(x: 16, y: 16), to: CGPoint(x: 7.5, y: 7.5), width: 2.6)
             ctx.addPath(path)
             ctx.fillPath()

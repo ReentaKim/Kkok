@@ -7,13 +7,13 @@
 **찍고, 콕 짚고, 끌어서 붙이기.**
 
 화면을 캡처해 화살표와 글자로 짚고, 아래 탭을 끌어 메신저에 바로 붙이는 Mac 앱입니다.<br/>
-계정 없음 · 인터넷 연결 없음 · 무료 · 오픈소스
+계정 없음 · 추적 없음 · 무료 · 오픈소스
 
 ![version](https://img.shields.io/badge/version-0.2.1-6e6e73?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)
 ![platform](https://img.shields.io/badge/macOS-14%2B-1d1d1f?style=flat-square&logo=apple&logoColor=white)
 ![swift](https://img.shields.io/badge/Swift-AppKit-f05138?style=flat-square&logo=swift&logoColor=white)
-![offline](https://img.shields.io/badge/network-none-FC0C59?style=flat-square)
+![privacy](https://img.shields.io/badge/tracking-none-FC0C59?style=flat-square)
 
 [**⬇️ 내려받기**](https://github.com/ReentaKim/Kkok/releases/latest) &nbsp;·&nbsp;
 [**📖 사용 가이드**](docs/GUIDE.md) &nbsp;·&nbsp;
@@ -76,8 +76,8 @@
 <td valign="top">
 
 ### 🔒 내 Mac 안에서만
-계정, 클라우드, 분석 도구, 업데이트 확인이 없습니다.<br/>
-인터넷 연결을 전혀 쓰지 않습니다.
+계정, 클라우드, 분석 도구가 없습니다. 캡처는 어디에도 보내지 않습니다.<br/>
+인터넷은 **업데이트 확인**(GitHub에 최신 버전 묻기)에만 쓰고, 설정에서 끌 수 있습니다.
 
 </td>
 </tr>
@@ -102,9 +102,9 @@ brew trust --cask reentakim/tap/kkok      # 처음 한 번: 이 tap의 Kkok을 �
 brew install --cask reentakim/tap/kkok
 ```
 
-업데이트는 `brew upgrade --cask kkok`, 지우기는 `brew uninstall --cask kkok`입니다. Homebrew로 설치하면 "확인되지 않은 개발자" 경고가 뜨지 않습니다.
+업데이트는 `brew upgrade --cask kkok`, 지우기는 `brew uninstall --cask kkok`입니다. 새 버전이 나오면 Kkok이 메뉴 막대에서 알려 줍니다. Homebrew로 설치하면 "확인되지 않은 개발자" 경고가 뜨지 않습니다.
 
-**직접 받기**: [Releases](https://github.com/ReentaKim/Kkok/releases/latest)에서 `Kkok-x.y.z.zip`을 받아 풀고, `Kkok.app`을 **응용 프로그램** 폴더로 옮깁니다.
+**직접 받기**: [Releases](https://github.com/ReentaKim/Kkok/releases/latest)에서 `Kkok-x.y.z.zip`을 받아 풀고, `Kkok.app`을 **응용 프로그램** 폴더로 옮깁니다. 그다음부터는 새 버전이 나오면 Kkok이 알려 주고, **업데이트** 버튼 한 번으로 바꿔 줍니다.
 
 처음 캡처할 때 **화면 기록 권한**을 켜 줍니다(시스템 설정 › 개인정보 보호 및 보안 › 화면 및 시스템 오디오 녹음).
 

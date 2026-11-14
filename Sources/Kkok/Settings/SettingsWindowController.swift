@@ -6,10 +6,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let failureLabel = NSTextField(wrappingLabelWithString: "")
     private let loginCheck = NSButton(checkboxWithTitle: "로그인할 때 Kkok 실행", target: nil, action: nil)
     private let soundCheck = NSButton(checkboxWithTitle: "캡처할 때 찰칵 소리", target: nil, action: nil)
+    private let updateCheck = NSButton(checkboxWithTitle: "업데이트 자동 확인", target: nil, action: nil)
     private let timerPopup = NSPopUpButton()
 
     init() {
-        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 440, height: 390),
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 420),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Kkok 설정"
         window.isReleasedWhenClosed = false
@@ -56,6 +57,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         soundCheck.state = Preferences.shared.captureSound ? .on : .off
         soundCheck.isEnabled = CaptureSound.isAvailable
         grid.addRow(with: [NSGridCell.emptyContentView, soundCheck])
+
+        updateCheck.target = self
+        updateCheck.action = #selector(updateCheckChanged)
+        updateCheck.state = Preferences.shared.autoUpdateCheck ? .on : .off
+        updateCheck.toolTip = "GitHub에 최신 버전만 묻습니다. 캡처나 개인 정보는 보내지 않습니다."
+        let checkNow = NSButton(title: "지금 확인", target: NSApp.delegate, action: #selector(AppDelegate.checkForUpdates(_:)))
+        checkNow.controlSize = .small
+        let version = NSTextField(labelWithString: "v\(Updater.currentVersion)")
+        version.textColor = .secondaryLabelColor
+        version.font = .systemFont(ofSize: 11)
+        let updRow = NSStackView(views: [updateCheck, checkNow, version])
+        updRow.spacing = 8
+        grid.addRow(with: [NSGridCell.emptyContentView, updRow])
 
         grid.column(at: 0).xPlacement = .trailing
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -106,6 +120,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func timerChanged() {
         Preferences.shared.timerSeconds = timerPopup.indexOfSelectedItem + 1
+    }
+
+    @objc private func updateCheckChanged() {
+        Preferences.shared.autoUpdateCheck = updateCheck.state == .on
     }
 
     @objc private func soundChanged() {
