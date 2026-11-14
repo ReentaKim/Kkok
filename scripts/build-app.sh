@@ -1,12 +1,12 @@
 #!/bin/bash
 # build-app.sh — SwiftPM 릴리스 빌드 후 Kkok.app 번들을 조립하고 서명한다. (SageBar 스크립트에서 가져옴)
-#   사용법: scripts/build-app.sh [--version 0.2.0] [--universal] [--install]
+#   사용법: scripts/build-app.sh [--version 0.2.1] [--universal] [--install]
 #   --install: /Applications/Kkok.app 으로 복사하고 다시 실행한다.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${KKOK_VERSION:-0.2.0}"
+VERSION="${KKOK_VERSION:-0.2.1}"
 UNIVERSAL=0
 INSTALL=0
 while [[ $# -gt 0 ]]; do
