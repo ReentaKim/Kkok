@@ -5,10 +5,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var recorders: [CaptureMode: HotKeyRecorder] = [:]
     private let failureLabel = NSTextField(wrappingLabelWithString: "")
     private let loginCheck = NSButton(checkboxWithTitle: "로그인할 때 Kkok 실행", target: nil, action: nil)
+    private let soundCheck = NSButton(checkboxWithTitle: "캡처할 때 찰칵 소리", target: nil, action: nil)
     private let timerPopup = NSPopUpButton()
 
     init() {
-        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 440, height: 360),
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 440, height: 390),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Kkok 설정"
         window.isReleasedWhenClosed = false
@@ -49,6 +50,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         loginCheck.action = #selector(loginChanged)
         loginCheck.state = LaunchAtLogin.enabled ? .on : .off
         grid.addRow(with: [NSGridCell.emptyContentView, loginCheck])
+
+        soundCheck.target = self
+        soundCheck.action = #selector(soundChanged)
+        soundCheck.state = Preferences.shared.captureSound ? .on : .off
+        soundCheck.isEnabled = CaptureSound.isAvailable
+        grid.addRow(with: [NSGridCell.emptyContentView, soundCheck])
 
         grid.column(at: 0).xPlacement = .trailing
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -99,6 +106,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func timerChanged() {
         Preferences.shared.timerSeconds = timerPopup.indexOfSelectedItem + 1
+    }
+
+    @objc private func soundChanged() {
+        Preferences.shared.captureSound = soundCheck.state == .on
+        if soundCheck.state == .on { CaptureSound.play() } // 켤 때 한 번 들려 준다
     }
 
     @objc private func loginChanged() {

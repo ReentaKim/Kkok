@@ -207,6 +207,12 @@ final class Preferences {
     }
 
     /// 앱을 직접 실행할 때 시작 창 보기 (기본 켬)
+    /// 캡처할 때 "찰칵" 소리 (기본 켬)
+    var captureSound: Bool {
+        get { d.object(forKey: "captureSound") == nil ? true : d.bool(forKey: "captureSound") }
+        set { d.set(newValue, forKey: "captureSound") }
+    }
+
     var showHomeAtLaunch: Bool {
         get { d.object(forKey: "showHomeAtLaunch") == nil ? true : d.bool(forKey: "showHomeAtLaunch") }
         set { d.set(newValue, forKey: "showHomeAtLaunch") }

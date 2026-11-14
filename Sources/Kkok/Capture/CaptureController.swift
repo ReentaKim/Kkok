@@ -134,6 +134,7 @@ final class CaptureController {
 
     private func deliver(_ img: CGImage, _ scale: CGFloat) {
         busy = false
+        CaptureSound.play()
         onCaptured?(img, scale)
     }
 
