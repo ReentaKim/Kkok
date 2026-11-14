@@ -9,7 +9,7 @@
 화면을 캡처해 화살표와 글자로 짚고, 아래 탭을 끌어 메신저에 바로 붙이는 Mac 앱입니다.<br/>
 계정 없음 · 추적 없음 · 무료 · 오픈소스
 
-![version](https://img.shields.io/badge/version-0.2.1-6e6e73?style=flat-square)
+![version](https://img.shields.io/badge/version-0.3.0-6e6e73?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)
 ![platform](https://img.shields.io/badge/macOS-14%2B-1d1d1f?style=flat-square&logo=apple&logoColor=white)
 ![swift](https://img.shields.io/badge/Swift-AppKit-f05138?style=flat-square&logo=swift&logoColor=white)
