@@ -9,7 +9,7 @@
 화면을 캡처해 화살표와 글자로 짚고, 아래 탭을 끌어 메신저에 바로 붙이는 Mac 앱입니다.<br/>
 계정 없음 · 인터넷 연결 없음 · 무료 · 오픈소스
 
-![version](https://img.shields.io/badge/version-0.1.0-6e6e73?style=flat-square)
+![version](https://img.shields.io/badge/version-0.2.0-6e6e73?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)
 ![platform](https://img.shields.io/badge/macOS-14%2B-1d1d1f?style=flat-square&logo=apple&logoColor=white)
 ![swift](https://img.shields.io/badge/Swift-AppKit-f05138?style=flat-square&logo=swift&logoColor=white)
@@ -184,6 +184,7 @@ scripts/build-app.sh --install   # /Applications 에 설치하고 실행
 | 문서 | 내용 |
 |---|---|
 | [사용 가이드](docs/GUIDE.md) | 설치부터 캡처·주석·내보내기·설정·문제 해결까지 |
+| [변경 기록](CHANGELOG.md) | 버전별로 바뀐 것 |
 | [PRD](docs/pm/PRD-v0.1.md) | 기능 요구사항(FR)과 수용 기준 |
 | [디자인 명세](docs/design/spec-v0.1.md) · [시안](docs/design/prototype-v0.1.html) | 화면 배치, 색, 주석 모양 |
 | [아키텍처](docs/dev/architecture.md) | 폴더 구조, 좌표계, 그리기·실행 취소·캡처 흐름 |
