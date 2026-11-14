@@ -29,13 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             exit(0)
         }
-        if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_COLORS_OUT"] {
-            let v = ColorGridView(current: .pink, pick: { _ in }, custom: {})
-            let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds)!
-            v.cacheDisplay(in: v.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
-            exit(0)
-        }
         if let out = ProcessInfo.processInfo.environment["KKOK_SNAPSHOT_HOME_OUT"] {
             DevSnapshot.runHome(output: URL(fileURLWithPath: out))
             return
@@ -507,8 +500,22 @@ enum DevSnapshot {
             doc.state.annotations.append(rt)
             selectID = rt.id
         }
+        // 하위 막대를 연 상태로: KKOK_SNAPSHOT_TOOL=shape|stamp|text|color
+        // 실제 사용과 같은 순서로 — 창을 띄운 뒤에 도구를 고른다
+        ToolState.shared.tool = .arrow
         let wc = EditorWindowController(doc: doc)
         if let selectID { wc.canvas.select([selectID]) }
+        if let t = env["KKOK_SNAPSHOT_TOOL"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                switch t {
+                case "shape": ToolState.shared.tool = .shape
+                case "stamp": ToolState.shared.tool = .stamp
+                case "text": ToolState.shared.tool = .text
+                case "color": wc.subPanel.toggleColor()
+                default: break
+                }
+            }
+        }
         wc.overrideStatus("자동 저장됨 · ~/Pictures/Kkok/\(doc.name).png")
         guard let window = wc.window else { exit(1) }
         capture(window, to: output, cleanup: tmp)

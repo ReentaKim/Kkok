@@ -7,6 +7,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
     let canvas: CanvasView
     private let scroll = NSScrollView()
     private let palette = ToolPaletteView()
+    /// 도구 막대 오른쪽에서 캔버스를 덮으며 열리는 하위 막대 (FR-26)
+    let subPanel = SubToolPanel()
     private let bottom = NSView()
     private let dragTab = DragTabView()
     private let statusLabel = NSTextField(labelWithString: "")
@@ -41,6 +43,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
         }
         dragTab.refresh()
         docSaved()
+        // 처음 열 때 지금 도구에 맞는 하위 막대 (애니메이션 없이)
+        DispatchQueue.main.async { [weak self] in self?.subPanel.update(animated: true) }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -111,8 +115,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
         palette.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         bottom.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(palette)
+        subPanel.translatesAutoresizingMaskIntoConstraints = false
+        // 겹치는 순서: 캔버스 < 하위 막대 < 도구 막대 (하위 막대가 도구 막대 뒤에서 미끄러져 나온다)
         content.addSubview(scroll)
+        content.addSubview(subPanel)
+        content.addSubview(palette)
         content.addSubview(bottom)
 
         let top = window!.contentLayoutGuide as! NSLayoutGuide
@@ -131,7 +138,22 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, NSTool
             bottom.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             bottom.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             bottom.heightAnchor.constraint(equalToConstant: bottomH),
+
+            subPanel.widthAnchor.constraint(equalToConstant: SubToolPanel.width),
         ])
+        let lead = subPanel.leadingAnchor.constraint(equalTo: palette.trailingAnchor, constant: -SubToolPanel.width)
+        let subTop = subPanel.topAnchor.constraint(equalTo: palette.topAnchor, constant: 10)
+        let subH = subPanel.heightAnchor.constraint(equalToConstant: 100)
+        NSLayoutConstraint.activate([lead, subTop, subH])
+        subPanel.leadingConstraint = lead
+        subPanel.topConstraint = subTop
+        subPanel.heightConstraint = subH
+        subPanel.anchor = { [weak palette] mode in palette?.anchorY(for: mode) ?? 10 }
+        subPanel.availableHeight = { [weak palette] in palette?.bounds.height ?? 600 }
+        subPanel.textContext = { [weak canvas] in canvas?.wantsFontPanel ?? false }
+        palette.onToggleSubPanel = { [weak subPanel] t in subPanel?.toggleCollapsed(for: t) }
+        palette.onToggleColors = { [weak subPanel] in subPanel?.toggleColor() }
+        canvas.onSelectionChange = { [weak subPanel] in subPanel?.selectionChanged() }
 
         scroll.contentView = CenteringClipView()
         scroll.documentView = canvas

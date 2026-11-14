@@ -25,7 +25,18 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
     let pad: CGFloat = 40
     let edgeBand: CGFloat = 22
 
-    private(set) var selection: Set<UUID> = [] { didSet { needsDisplay = true; updateCursor() } }
+    private(set) var selection: Set<UUID> = [] {
+        didSet { needsDisplay = true; updateCursor(); if oldValue != selection { onSelectionChange?() } }
+    }
+    /// 선택이 바뀌거나 글자 편집을 시작·마칠 때 (하위 막대가 글꼴을 보여 줄지 정한다)
+    var onSelectionChange: (() -> Void)?
+
+    /// 글자를 쓰는 중이거나, 고른 주석이 모두 글자일 때
+    var wantsFontPanel: Bool {
+        if editingID != nil { return true }
+        let sel = doc.state.annotations.filter { selection.contains($0.id) }
+        return !sel.isEmpty && sel.allSatisfy { $0.kind == .text }
+    }
 
     private enum Drag {
         case none
@@ -533,6 +544,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         window?.makeFirstResponder(tv)
         tv.selectAll(nil)
         needsDisplay = true
+        onSelectionChange?()
     }
 
     /// 글꼴·크기·색을 편집 중인 글자 상자에 맞춘다 (편집 중에 글꼴을 바꿔도 다시 부른다)
@@ -596,6 +608,7 @@ final class CanvasView: NSView, NSTextViewDelegate, NSMenuItemValidation {
         if annotation(id) != nil { selection = [id] }
         window?.makeFirstResponder(self)
         needsDisplay = true
+        onSelectionChange?()
     }
 
     var isEditingText: Bool { editingID != nil }

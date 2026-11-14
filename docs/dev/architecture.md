@@ -53,11 +53,13 @@ scripts/generate-icons.sh           # 아이콘 다시 그리기
 |---|---|
 | 시작 창(FR-45): 직접 실행·아이콘 다시 누름 | `App/HomeWindowController.swift` |
 | 글꼴 4개(OFL, 프로세스 안에서만 등록, FR-23) | `Model/FontRegistry.swift`, `Resources/Fonts`, `Resources/licenses` |
-| 12색 격자 | `Tools/ToolPaletteView.swift` (`ColorGridView`) |
+| 하위 막대(FR-26): 도형·스탬프·글꼴·색, 덮어 열림 | `Tools/SubToolPanel.swift`, 배치는 `Canvas/EditorWindowController.swift` |
 | 글자 회전·손잡이 커서(FR-24·25) | `Model/Geometry.swift`(textCorners·rotate·snapAngle), `Canvas/HandleCursor.swift` |
 | 오버레이 종료 시 해제된 선택기 참조로 죽던 문제(BUG-14) | `Capture/SelectionOverlay.swift` (`weak owner`) |
 
-화면 점검 모드(화면에 띄우지 않고 PNG로 저장): `KKOK_SNAPSHOT_IN/OUT`(편집 창), `KKOK_SNAPSHOT_HOME_OUT`(시작 창), `KKOK_SNAPSHOT_COLORS_OUT`(색 격자), `KKOK_SNAPSHOT_CURSORS_OUT`(커서). 번들 밖에서 실행할 때 글꼴은 `KKOK_FONTS_DIR=Resources/Fonts`, 아이콘은 `KKOK_ICON_PATH=Resources/AppIcon.icns`. README·가이드 이미지는 `KKOK_SNAPSHOT_DEMO=1`(가상의 "Team Board" 화면에 맞춘 주석, `KKOK_SNAPSHOT_SELECT_ROTATED=1`이면 회전 손잡이까지)로 만든다. 시작 창 점검은 실제 보관함 대신 임시 보관함을 쓴다.
+README·가이드 이미지는 `scripts/docs/make-images.sh` 한 번으로 다시 만든다(가상의 화면 `scripts/docs/demo-base.swift` 사용).
+
+화면 점검 모드(화면에 띄우지 않고 PNG로 저장): `KKOK_SNAPSHOT_IN/OUT`(편집 창), `KKOK_SNAPSHOT_HOME_OUT`(시작 창), `KKOK_SNAPSHOT_TOOL=shape|stamp|text|color`(하위 막대 연 상태), `KKOK_SNAPSHOT_CURSORS_OUT`(커서). 번들 밖에서 실행할 때 글꼴은 `KKOK_FONTS_DIR=Resources/Fonts`, 아이콘은 `KKOK_ICON_PATH=Resources/AppIcon.icns`. README·가이드 이미지는 `KKOK_SNAPSHOT_DEMO=1`(가상의 "Team Board" 화면에 맞춘 주석, `KKOK_SNAPSHOT_SELECT_ROTATED=1`이면 회전 손잡이까지)로 만든다. 시작 창 점검은 실제 보관함 대신 임시 보관함을 쓴다.
 
 ## 9. 알려진 한계 (v0.1)
 - 영역 선택은 한 화면 안에서만(화면 두 개에 걸친 영역 불가)
